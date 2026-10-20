@@ -3,6 +3,15 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { openSite, openSheet } from './helpers.mjs';
 
+/* A day every named railroad's timetable covers. data/timetables.json is refreshed weekly, so no fixed date stays in it. */
+const TT = JSON.parse(readFileSync(new URL('../../data/timetables.json', import.meta.url), 'utf8'));
+function dayFor(...providers) {
+  const first = providers.map((p) => TT.agencies.find((a) => a.provider === p).valid[0]).sort().pop();
+  const n = first > TT.built.replace(/-/g, '') ? first : TT.built.replace(/-/g, '');
+  const d = new Date(Date.UTC(+n.slice(0, 4), +n.slice(4, 6) - 1, +n.slice(6, 8) + 1));   // a day in, clear of the edges
+  return d.toISOString().slice(0, 10);
+}
+
 async function openPlanner(page) {
   await openSheet(page);
   await page.locator('#tab-track').click();
@@ -41,7 +50,7 @@ test('when the page\'s own timetables can\'t be read, it uses the published site
 test('NJ Transit trains can be planned', async ({ page }) => {
   await openSite(page);
   await openPlanner(page);
-  await page.locator('#planDate').fill('2026-10-21');   // a Wednesday inside NJ Transit's timetable
+  await page.locator('#planDate').fill(dayFor('NJ Transit'));
   await page.locator('#planFrom').fill('New York Penn Station · NJ Transit');
   await page.locator('#planTo').fill('Trenton Transit Center · NJ Transit');
   await page.locator('#planForm').getByRole('button', { name: 'Find trains' }).click();
@@ -65,6 +74,7 @@ test('station suggestions come from every railroad, best match first', async ({ 
 test('one station listed by two railroads is one place, with both railroads\' trains', async ({ page }) => {
   await openSite(page);
   await openPlanner(page);
+  await page.locator('#planDate').fill(dayFor('Amtrak', 'MBTA'));
   await page.locator('#planFrom').fill('South Station');   // the MBTA's name for Amtrak's Boston South
   const opt = page.locator('#planFromSugg .sg-opt').first();
   await expect(opt).toContainText('Boston South');
