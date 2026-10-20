@@ -46,6 +46,9 @@
   --rail-strong: #4f4f49;
   --state: #dfdfd8;
   --me: #1a6cf0;
+  --pp-a: #1c62d8;   /* passport card, top left to bottom right */
+  --pp-b: #0d2f72;
+  --pp-long-bg: #1d1d1b; --pp-long-fg: #ffffff;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 6px 20px rgba(0,0,0,.08);
   --font: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
   --side: 400px;
@@ -59,7 +62,7 @@
     --tint-0: #21221f; --tint-1: #242620; --tint-2: #26241f; --tint-3: #1f2322;
     --border: #393a34; --border-strong: #4f5049;
     --ok: #3dbd75; --late: #eba52c; --late-text: #eba52c; --bad: #ff6153; --bad-text: #ff7a6e; --none: #7a7a73; --halo: #171816;
-    --label-halo: #21221f; --label: #cfcfc8; --rail: #66675f; --rail-strong: #b4b4ab; --state: #2c2d29; --me: #4d8eff;
+    --label-halo: #21221f; --label: #cfcfc8; --rail: #66675f; --rail-strong: #b4b4ab; --state: #2c2d29; --me: #4d8eff; --pp-a: #2a5fc0; --pp-b: #11275a; --pp-long-bg: #2a2b27; --pp-long-fg: #ebebe6;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
     color-scheme: dark;
   }
@@ -70,7 +73,7 @@
   --tint-0: #21221f; --tint-1: #242620; --tint-2: #26241f; --tint-3: #1f2322;
   --border: #393a34; --border-strong: #4f5049;
   --ok: #3dbd75; --late: #eba52c; --late-text: #eba52c; --bad: #ff6153; --bad-text: #ff7a6e; --none: #7a7a73; --halo: #171816;
-  --label-halo: #21221f; --label: #cfcfc8; --rail: #66675f; --rail-strong: #b4b4ab; --state: #2c2d29; --me: #4d8eff;
+  --label-halo: #21221f; --label: #cfcfc8; --rail: #66675f; --rail-strong: #b4b4ab; --state: #2c2d29; --me: #4d8eff; --pp-a: #2a5fc0; --pp-b: #11275a; --pp-long-bg: #2a2b27; --pp-long-fg: #ebebe6;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
   color-scheme: dark;
 }
@@ -807,6 +810,51 @@ button:disabled { cursor: default; opacity: .5; }
 .hero-bar i { display: block; height: 100%; background: var(--sig); }
 .hero-fresh { margin: 0; font-size: 12.5px; color: var(--muted); }
 .hero-fresh.warn { color: var(--late-text); font-weight: 600; }
+/* ---------- passport: every trip taken, with totals, and their lines on the map */
+.pp { display: grid; gap: 12px; padding-bottom: 20px; }
+.pp-years { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 0 20px 2px; }
+.pp-card { position: relative; display: grid; gap: 14px; padding: 16px 16px 14px; border-radius: 10px; overflow: hidden; }
+.pp-card h3 { display: block; margin: 0; font-size: 18px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; line-height: 1.15; }
+.pp-card h3 small { display: block; margin-top: 3px; color: inherit; font-size: 11px; font-weight: 700; letter-spacing: .08em; opacity: .7; }
+.pp-main { color: #fff; background: linear-gradient(140deg, var(--pp-a), var(--pp-b)); box-shadow: var(--shadow); }
+.pp-main::after { content: ''; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; border: 18px solid rgba(255,255,255,.06); pointer-events: none; }
+.pp-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px 12px; margin: 0; }
+.pp-stats > div { grid-column: span 2; min-width: 0; }
+.pp-stats > .wide { grid-column: span 4; }
+.pp-stats > .half { grid-column: span 3; }
+.pp-stats dt { font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; opacity: .72; }
+.pp-stats dd { margin: 2px 0 0; font-size: 28px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pp-stats dd small { display: block; margin-top: 3px; font-size: 13px; font-weight: 500; opacity: .8; white-space: normal; }
+.pp-stats .big dd { font-size: 36px; }
+.pp-long { color: var(--pp-long-fg); background: var(--pp-long-bg); }
+.pp-long .pp-num { font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.pp-long p, .pp-fav p { margin: 0; font-size: 14px; }
+.pp-long .pp-sub, .pp-fav .pp-sub { opacity: .72; font-size: 13.5px; }
+.pp-fav { border: 1px solid var(--border); background: var(--paper-2); }
+.pp-fav h3 { font-size: 15px; letter-spacing: 0; text-transform: none; }
+.pp-fav .pp-name { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.pp-sketch { position: absolute; right: 12px; bottom: 10px; width: 130px; height: 64px; opacity: .9; pointer-events: none; }
+.pp-sketch path { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.pp-sketch circle { fill: currentColor; }
+.pp-long .pp-sketch { color: var(--me); }
+.pp-fav .pp-sketch { color: var(--muted); }
+.pp-card .pp-text { padding-right: 140px; display: grid; gap: 4px; }
+.pp-note { margin: 0; font-size: 12px; color: var(--muted); }
+.pp-trips h4 { margin: 6px 0 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.pp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; width: 100%; padding: 8px 0; border: 0; border-top: 1px solid var(--rule); background: none; text-align: left; color: var(--ink); }
+.pp-row:hover b { text-decoration: underline; }
+.pp-row b { font-size: 14px; }
+.pp-row span { font-size: 12.5px; color: var(--muted); }
+.pp-row .pp-km { grid-row: span 2; align-self: center; font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.passport-lines path { vector-effect: non-scaling-stroke; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.passport-lines .casing { stroke: var(--halo); stroke-width: 6; opacity: .7; }
+.passport-lines .line { stroke: var(--me); stroke-width: 2.6; opacity: .55; }
+.passport-lines .line.on { stroke-width: 4.5; opacity: 1; }
+.passport-pts circle { fill: var(--paper); stroke: var(--me); stroke-width: 2; }
+.passport-pts text { font-size: 12px; font-weight: 700; fill: var(--ink); stroke: var(--halo); stroke-width: 3.5px; paint-order: stroke; stroke-linejoin: round; }
+.map.passport-on .trains, .map.passport-on .tlabels, .map.passport-on .clusters { opacity: .15; pointer-events: none; }
+.map.passport-on .stations, .map.passport-on .station-hits { opacity: .35; }
+.map.passport-on .lb-city, .map.passport-on .lb-stn { display: none; }   /* the passport names the stations visited */
 .hero-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .hero-acts .btn { flex: 1 1 auto; min-height: 40px; }
 #homeMore h3 { margin-bottom: 8px; }
@@ -834,8 +882,19 @@ button:disabled { cursor: default; opacity: .5; }
 /* trip planner */
 .plan-card { width: min(560px, 100%); }
 .plan-mode { margin-bottom: 14px; }
-.plan-st { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 480px) { .plan-st { grid-template-columns: 1fr; } }
+.plan-st { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px 8px; align-items: end; }
+.plan-field { position: relative; min-width: 0; }
+.plan-field .sugg { position: static; margin-top: 4px; max-height: 260px; box-shadow: none; }   /* in the form, so the dialog doesn't cut it off */
+.plan-swap { width: 36px; height: 44px; color: var(--muted); border-color: var(--border); }   /* as tall as the inputs */
+.plan-swap:hover { color: var(--ink); }
+@media (max-width: 480px) {
+  /* stacked: From over To, the swap button beside them, turned to point up and down */
+  .plan-st { grid-template-columns: minmax(0, 1fr) auto; }
+  .plan-st > .plan-field:first-child { grid-row: 1; grid-column: 1; }
+  .plan-st > .plan-field:last-child { grid-row: 2; grid-column: 1; }
+  .plan-swap { grid-row: 1 / 3; grid-column: 2; align-self: center; width: 44px; margin: 18px 0 0; }
+  .plan-swap svg { transform: rotate(90deg); }
+}
 #planOut { display: grid; gap: 8px; margin-top: 16px; }
 #planOut:empty { display: none; }
 .plan-note { margin: 0; font-size: 12.5px; color: var(--muted); }
@@ -878,6 +937,8 @@ button:disabled { cursor: default; opacity: .5; }
   .handle span { display: block; width: 40px; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--border-strong); }
   .head { padding: 2px 16px 0; gap: 8px; touch-action: none; }
   .head .search, .head .tabs, .head .settings { touch-action: auto; }
+  .tabs button { flex: 1 1 0; min-width: 0; padding: 3px 2px 0; font-size: 13.5px; }
+  .tabs button[aria-selected="true"]::after { left: 4px; right: 4px; }
   .mark { width: 26px; height: 26px; }
   .wordmark { font-size: 20px; }
   .wordmark .trk::after { bottom: -5px; height: 5px; }
@@ -1124,6 +1185,7 @@ button:disabled { cursor: default; opacity: .5; }
         <button type="button" role="tab" id="tab-explore" data-tab="explore" aria-controls="view-explore" aria-selected="true">Explore</button>
         <button type="button" role="tab" id="tab-track" data-tab="track" aria-controls="view-track" aria-selected="false" tabindex="-1">Trips</button>
         <button type="button" role="tab" id="tab-stations" data-tab="stations" aria-controls="view-stations" aria-selected="false" tabindex="-1">Stations</button>
+        <button type="button" role="tab" id="tab-passport" data-tab="passport" aria-controls="view-passport" aria-selected="false" tabindex="-1">Passport</button>
       </div>
       <div class="pop settings" id="settings" role="dialog" aria-label="Settings" hidden>
         <fieldset><legend>Theme</legend><div class="seg">
@@ -1153,6 +1215,10 @@ button:disabled { cursor: default; opacity: .5; }
           <h3>Coming up <small id="homeCount"></small></h3>
           <div class="mt-list" id="homeList"></div>
         </div>
+      </section>
+
+      <section id="view-passport" role="tabpanel" aria-labelledby="tab-passport" hidden>
+        <div class="sec pp" id="passport"></div>
       </section>
 
       <section id="view-explore" role="tabpanel" aria-labelledby="tab-explore">
@@ -1424,14 +1490,14 @@ button:disabled { cursor: default; opacity: .5; }
       <form class="acct-form plan-form" id="planForm" novalidate>
         <label>Date<input type="date" id="planDate" required></label>
         <div class="plan-st">
-          <label>From<input id="planFrom" list="ttStations" autocomplete="off" placeholder="Station or city"></label>
-          <label>To<input id="planTo" list="ttStations" autocomplete="off" placeholder="Station or city"></label>
+          <div class="plan-field"><label>From<input id="planFrom" autocomplete="off" placeholder="Station or city" role="combobox" aria-expanded="false" aria-controls="planFromSugg" aria-autocomplete="list"></label><div class="sugg" id="planFromSugg" role="listbox" aria-label="From station suggestions" hidden></div></div>
+          <button type="button" class="icon-btn plan-swap" id="planSwap" aria-label="Swap From and To" title="Swap From and To"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h10M10 2.5 12.5 5 10 7.5M13.5 11h-10M6 8.5 3.5 11 6 13.5"/></svg></button>
+          <div class="plan-field"><label>To<input id="planTo" autocomplete="off" placeholder="Station or city" role="combobox" aria-expanded="false" aria-controls="planToSugg" aria-autocomplete="list"></label><div class="sugg" id="planToSugg" role="listbox" aria-label="To station suggestions" hidden></div></div>
         </div>
         <label class="plan-num" hidden>Train number<input id="planNum" inputmode="numeric" autocomplete="off" placeholder="For example 5"></label>
         <p class="acct-err" role="alert" hidden></p>
         <button type="submit" class="btn primary">Find trains</button>
       </form>
-      <datalist id="ttStations"></datalist>
     </section>
     <div id="planOut" aria-live="polite"></div>
   </div>
@@ -1600,6 +1666,9 @@ const API = 'https://api-v3.amtraker.com/v3';
    FEEDS_WORKER is filled in by `npm run deploy` in worker/. A page opened from disk or
    localhost falls back to the local dev server (`npm run dev` in worker/). Either way, no keys live here. */
 const FEEDS_WORKER = 'https://trackside-feeds.trackside-feeds.workers.dev';
+// The published site (SITE_URL in worker/wrangler.toml). Its timetables are the fallback when the page's own copy
+// can't be read, as when index.html is opened straight from disk, where browsers block reading other files.
+const PUBLIC_SITE = 'https://sm3625.github.io/train-tracker/';
 const FEEDS_API = FEEDS_WORKER || (/^(file:|https?:\/\/(localhost|127\.0\.0\.1)[:/])/.test(location.href) ? 'http://localhost:8787' : '');
 /* In the iOS and Android apps (app/, built with Capacitor), app/build.mjs adds Capacitor's runtime and the site's public
    address. On the website neither is there, IN_APP is false, and the page behaves as it always has. */
@@ -1948,24 +2017,47 @@ let trains = [];
 const byId = new Map();
 const stations = new Map();
 const stationStops = new Map();   // station code -> [{ t, i }]
-/* A station on the same spot as another with the same name (Amtrak's and Metrolink's Irvine, about 10 m apart) is the
-   same station: one board, with the trains of both. aliasOf maps the code of each extra one to the code kept. */
-const aliasOf = new Map();
+/* One station listed twice is one station: one board, with the trains of both. That's a station on the same spot as
+   another with the same name (Amtrak's and Metrolink's Irvine, about 10 m apart), or one of another railroad within
+   SAME_STATION_KM, whatever its name (Amtrak's Boston South is the MBTA's South Station). Nearer than this, such pairs
+   are all one station (Los Angeles Union, the farthest apart, is about 310 m); farther, they're neighbours, like
+   Chicago Union and Ogilvie at 360 m. aliasOf maps the code of each extra one to the code kept; aliasNames lists the
+   other names a kept station goes by, so a search for "South Station" finds Boston South. */
+const SAME_STATION_KM = 0.32;
+const aliasOf = new Map(), aliasNames = new Map(), aliasRails = new Map();   // rails: the other railroads there, by name
 const canonCode = (code) => aliasOf.get(code) || code;
 const listedStation = (st) => canonCode(st.code) === st.code && stationStops.has(st.code);
+const railOfCode = (code) => (code.includes('-') ? code.split('-')[0] : '');   // intercity codes have no dash
 function linkCoStations() {
   aliasOf.clear();
-  const byName = new Map();
-  for (const st of stations.values()) {
-    const key = (st.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (key) byName.set(key, [...(byName.get(key) || []), st]);
-  }
-  for (const group of byName.values()) {
-    if (group.length < 2) continue;
-    const keep = group.find((st) => !st.code.includes('-')) || group[0];   // intercity codes have no dash
-    for (const st of group) {
-      if (st !== keep && RAIL.kmBetween([st.lon, st.lat], [keep.lon, keep.lat]) < 0.2) aliasOf.set(st.code, keep.code);
+  aliasNames.clear();
+  aliasRails.clear();
+  const list = [...stations.values()].filter((st) => isFinite(st.lat) && isFinite(st.lon));
+  const up = list.map((_, i) => i);
+  const root = (i) => (up[i] === i ? i : (up[i] = root(up[i])));
+  const key = (st) => (st.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cells = new Map();
+  list.forEach((st, i) => { const k = Math.round(st.lat * 100) + ',' + Math.round(st.lon * 100); cells.set(k, [...(cells.get(k) || []), i]); });
+  list.forEach((st, i) => {
+    const la = Math.round(st.lat * 100), lo = Math.round(st.lon * 100);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+      for (const j of cells.get((la + a) + ',' + (lo + b)) || []) {
+        if (j <= i) continue;
+        const o = list[j], km = RAIL.kmBetween([st.lon, st.lat], [o.lon, o.lat]);
+        if ((key(st) && key(st) === key(o) && km < 0.2) || (railOfCode(st.code) !== railOfCode(o.code) && km < SAME_STATION_KM)) up[root(j)] = root(i);
+      }
     }
+  });
+  const groups = new Map();
+  list.forEach((st, i) => groups.set(root(i), [...(groups.get(root(i)) || []), st]));
+  // kept: an intercity station, Amtrak's three-letter code before VIA's four
+  const rank = (st) => (st.code.includes('-') ? 2 : st.code.length === 3 ? 0 : 1);
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const keep = group.slice().sort((x, y) => rank(x) - rank(y))[0];
+    for (const st of group) if (st !== keep) aliasOf.set(st.code, keep.code);
+    aliasNames.set(keep.code, [...new Set(group.map((st) => st.name).filter((n) => n && n !== keep.name))]);
+    aliasRails.set(keep.code, [...new Set(group.filter((st) => st !== keep && st.label).map((st) => st.label))]);   // commuter stations carry their railroad
   }
 }
 function buildStationStops() {
@@ -2020,10 +2112,12 @@ const gRail = gZoom.append('g');
 const gNet = gZoom.append('g').attr('class', 'net');
 const gTrail = gZoom.append('g').attr('class', 'trail');
 const gRoute = gZoom.append('g').attr('class', 'route');
+const gPassport = gZoom.append('g').attr('class', 'passport-lines').attr('aria-hidden', 'true');
 const gLabels = svg.append('g').attr('class', 'labels').attr('aria-hidden', 'true');
 const gStations = svg.append('g').attr('class', 'stations');
 const gStationHits = svg.append('g').attr('class', 'station-hits');   // invisible, larger click targets
 const gStops = svg.append('g').attr('class', 'stops-map');
+const gPassportPts = svg.append('g').attr('class', 'passport-pts').attr('aria-hidden', 'true');
 const gTrailPts = svg.append('g').attr('class', 'trail-pts');
 const gGhost = svg.append('g').attr('class', 'ghost').attr('aria-hidden', 'true');
 const gMe = svg.append('g').attr('class', 'me');
@@ -2617,6 +2711,7 @@ function positionAll() {
     .attr('r', (d) => r + (d.code === boardCode ? 2 : 0) + (k >= 3 ? [0, 1.6, 0.8, 0][stationTier(d.code)] : 0))
     .style('display', shownOnly);
   gStops.selectAll('g.sd').attr('transform', (d) => `translate(${T.applyX(d.p[0]).toFixed(1)},${T.applyY(d.p[1]).toFixed(1)})`);
+  positionPassport();
   positionTrailPts();
   positionGhost();
   scheduleLabels();
@@ -3669,7 +3764,7 @@ svg.on('keydown', (e) => {
 
 /* ================= sidebar ================= */
 const bodyEl = $('#body'), qEl = $('#q'), suggEl = $('#sugg');
-const TABS = ['home', 'explore', 'track', 'stations'];
+const TABS = ['home', 'explore', 'track', 'stations', 'passport'];
 let tab = TABS.includes(store.get('tab', 'explore')) ? store.get('tab', 'explore') : 'explore';
 stationsTabActive = tab === 'stations';
 const nav = [];                 // screens opened over the tab: { type: 'train', id, ctx } | { type: 'station', code }
@@ -3684,6 +3779,7 @@ function setTab(name, { focus = false } = {}) {
   rememberScroll();
   tab = name;
   store.set('tab', name);
+  if (name === 'passport') passportFit = true;
   if (stationsTabActive !== (name === 'stations')) {
     stationsTabActive = name === 'stations';
     if (stationsLoaded) positionAll();
@@ -3721,6 +3817,7 @@ function openTrain(id, { pan = true, zoomIn = false, ctx = null } = {}) {
   sheetFor('train');
 }
 function openStation(code, { pan = true } = {}) {
+  code = canonCode(code);   // a station listed twice opens as one
   const st = stations.get(code);
   if (!st) return;
   const cur = topScreen();
@@ -3771,6 +3868,7 @@ function showScreen({ reset = false, restore = false } = {}) {
   drawRoute();
   markBoardStation();
   updateMinimap(true);
+  drawPassportMap();
   if (reset) bodyEl.scrollTop = 0;
   else if (restore) bodyEl.scrollTop = scrollMem.get(screenKey(s)) || 0;
   stickListbar();
@@ -3780,6 +3878,7 @@ function renderTab() {
   if (tab === 'home') renderHome();
   else if (tab === 'explore') { renderSummary(); renderList(); }
   else if (tab === 'track') renderTrack();
+  else if (tab === 'passport') renderPassport();
   else renderStationsTab();
 }
 /* "in 12 min", or, when an estimate has already passed without a new report, say so */
@@ -4146,7 +4245,11 @@ function hl(text, s) {
 function matchStations(s, limit) {
   const out = [];
   for (const st of stations.values()) {
-    const name = (st.name || '').toLowerCase(), city = (st.city || '').toLowerCase(), code = st.code.toLowerCase();
+    if (aliasOf.has(st.code)) continue;   // found through the station it's part of
+    const city = (st.city || '').toLowerCase(), code = st.code.toLowerCase();
+    // a station also goes by the names of the ones linked to it ("South Station" for Boston South)
+    const names = [st.name || '', ...(aliasNames.get(st.code) || [])].map((n) => n.toLowerCase());
+    const name = names.find((n) => n.startsWith(s)) || names.find((n) => wordStart(n, s)) || names.find((n) => s.length >= 3 && n.includes(s)) || names[0];
     let sc = -1;
     if (code === s) sc = 100;
     else if (name.startsWith(s)) sc = 70;
@@ -4249,7 +4352,7 @@ function suggOptHTML(it, s) {
     return `<span class="sg-ico">${ICON.route}</span><span class="sg-main"><b>${hl(r.name, s)}</b><small>${plural(r.ids.length, 'train')} in the feed${r.late ? `, ${r.late} running late` : ''}</small></span><span class="sg-side">Route</span>`;
   }
   const st = it.st;
-  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
+  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}${esc(alsoText(st.code))}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
 }
 function setActiveSugg(i) {
   suggActive = i;
@@ -4345,16 +4448,19 @@ suggEl.addEventListener('click', (e) => { const o = e.target.closest('.sg-opt');
 $('#qclear').onclick = () => { setQueryValue(''); qEl.focus(); };
 
 /* a smaller version of the same combobox for picking one station */
-function stationPicker(input, list, onPick) {
+/* A station box with its own suggestions. Live stations by default; the trip planner passes its own match (stations in
+   the timetables), item (the suggestion's text) and fill (what the box says once one is picked). */
+function stationPicker(input, list, onPick, { match = (s) => matchStations(s, 6), item = liveStationItem, fill = null } = {}) {
   let items = [], active = -1;
   const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
   const render = () => {
     const s = input.value.trim().toLowerCase();
-    items = s ? matchStations(s, 6) : [];
+    const got = s ? match(s) : [];   // null: nothing to suggest, as when the box already names a station
+    items = got || [];
     active = -1;
     list.innerHTML = items.length
-      ? items.map((x, i) => `<div class="sg-opt" role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="false"><span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span></div>`).join('')
-      : (s ? '<div class="sg-empty">No stations match.</div>' : '');
+      ? items.map((x, i) => `<div class="sg-opt" role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="false"><span class="sg-ico">${ICON.station}</span>${item(x, s)}</div>`).join('')
+      : (s && got ? '<div class="sg-empty">No stations match.</div>' : '');
     const show = !!list.innerHTML && document.activeElement === input;
     list.hidden = !show;
     input.setAttribute('aria-expanded', String(show));
@@ -4362,7 +4468,7 @@ function stationPicker(input, list, onPick) {
   const pick = (i) => {
     const x = items[i];
     if (!x) return;
-    input.value = `${x.st.name} (${x.st.code})`;
+    input.value = fill ? fill(x) : `${x.st.name} (${x.st.code})`;
     input.dataset.code = x.st.code;
     close();
     onPick();
@@ -4378,11 +4484,17 @@ function stationPicker(input, list, onPick) {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); if (items.length) setActive((active + 1) % items.length); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); if (items.length) setActive(active <= 0 ? items.length - 1 : active - 1); }
-    else if (e.key === 'Enter') { e.preventDefault(); pick(active >= 0 ? active : 0); }
+    else if (e.key === 'Enter') { if (list.hidden) return; e.preventDefault(); pick(active >= 0 ? active : 0); }   // closed: the form's own Enter
     else if (e.key === 'Escape') { e.stopPropagation(); close(); }
   });
   list.addEventListener('mousedown', (e) => e.preventDefault());
   list.addEventListener('click', (e) => { const o = e.target.closest('.sg-opt'); if (o) pick(+o.dataset.i); });
+}
+
+/* " · also MBTA", for a station shared with other railroads */
+const alsoText = (code) => { const r = aliasRails.get(code) || []; return r.length ? ' · also ' + r.join(', ') : ''; };
+function liveStationItem(x, s) {
+  return `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}${esc(alsoText(x.st.code))}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span>`;
 }
 
 /* ---------------- train details ---------------- */
@@ -4798,7 +4910,7 @@ function renderBoard() {
         </div>
       </div>
       <header class="st-head">
-        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}</p>
+        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}${esc(alsoText(st.code))}</p>
         <h2>${esc(st.name || st.code)}</h2>
         <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'No more trains'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
       </header>
@@ -4857,9 +4969,10 @@ function renderTrip() {
   let left = 0;
   for (const t of trains) {
     if (isDone(t)) continue;
-    const i = t.stops.findIndex((s) => s.code === a);
+    // by station, not code: Amtrak's Boston South and the MBTA's South Station are one
+    const i = t.stops.findIndex((s) => s.code && canonCode(s.code) === canonCode(a));
     if (i < 0) continue;
-    const j = t.stops.findIndex((s, k) => k > i && s.code === b);
+    const j = t.stops.findIndex((s, k) => k > i && s.code && canonCode(s.code) === canonCode(b));
     if (j < 0 || j <= t.lastIdx) continue;
     const gone = i <= t.lastIdx;
     if (gone) left++;
@@ -4927,7 +5040,7 @@ function stationRow(st, km) {
   const up = upcomingAt(st.code);
   const next = up[0];
   const place = st.city ? st.city + (st.state ? ', ' + st.state : '') : '';
-  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
+  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${esc(alsoText(st.code))}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
     + `<span class="side-v">${up.length ? `<b>${up.length}</b> to come<br>next ${esc(clock(next.time, next.t.stops[next.i].tz))}` : 'No more today'}</span></button>`;
 }
 function renderStationsTab() {
@@ -5812,22 +5925,28 @@ document.addEventListener('visibilitychange', () => {
    weekly. A train's times count in minutes from "noon minus 12 hours" on its service day, in its route's time zone;
    each station shows them in its own. Dates here are YYYYMMDD strings. */
 let tt = null, ttLoad = null;
-// The app reads the site's copy, which is refreshed weekly, and falls back to the one it shipped with.
-const TT_URLS = SITE_URL ? [new URL('data/timetables.json', SITE_URL).href, 'data/timetables.json'] : ['data/timetables.json'];
+// The app reads the site's copy, which is refreshed weekly, and falls back to the one it shipped with. The website reads
+// its own, then the published site's.
+const TT_URLS = [...new Set(SITE_URL ? [new URL('data/timetables.json', SITE_URL).href, 'data/timetables.json']
+  : ['data/timetables.json', new URL('data/timetables.json', PUBLIC_SITE).href])];
 async function fetchTimetables() {
+  const get = async (url) => { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); };
+  if (SITE_URL) {
+    // the app: its own copy is on the phone, so read both and keep the newer (an update can ship before the site's)
+    const got = await Promise.allSettled(TT_URLS.map(get));
+    const ok = got.filter((x) => x.status === 'fulfilled').map((x) => x.value);
+    if (!ok.length) throw got[0].reason;
+    return ok.sort((x, y) => String(y.built || '').localeCompare(String(x.built || '')))[0];
+  }
   let last;
   for (const url of TT_URLS) {
-    try {
-      const r = await fetch(url, { cache: 'no-cache' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
-    } catch (err) { last = err; }
+    try { return await get(url); } catch (err) { last = err; }
   }
   throw last;
 }
 function loadTimetables() {
   ttLoad ||= fetchTimetables()
-    .then((d) => (tt = prepTimetables(d)))
+    .then((d) => { ttPlacesMemo = null; return (tt = prepTimetables(d)); })
     .catch((err) => { ttLoad = null; throw err; });
   return ttLoad;
 }
@@ -5842,15 +5961,66 @@ function prepTimetables(d) {
       // Amtrak's timetable names some stations oddly ("Ny Moynihan Train Hall At Penn Station"); its live list reads better
       const known = a.provider === 'Amtrak' && stations.get(st[0]);
       if (known && known.name) st[1] = known.name;
-      const [code, name, tz] = st;
+      const [code, name, tz, lat, lon] = st;
       const shown = code.includes('-') ? '' : ` (${code})`;   // commuter rail stops (ML-123) have no public codes
       let label = `${name}${shown} · ${a.label}`;
       if (seen.has(label)) label = `${name} (${code}) · ${a.label}`;
       seen.add(label);
-      list.push({ a, i, code, name, tz, label });
+      list.push({ a, i, code, name, tz, label, lat, lon });
     });
   }
   return { built: d.built, agencies, stations: list, byLabel: new Map(list.map((s) => [s.label.toLowerCase(), s])) };
+}
+/* The planner's stations. Railroads list a shared station separately, under their own names (Amtrak's "Boston South"
+   is the MBTA's "South Station"), so stations of different railroads within SAME_STATION_KM of each other are one
+   place, and a search from it covers every railroad there. Positions come from the timetables, or, for a railroad whose
+   timetable has none yet, the live station list; a station with neither stands alone. */
+const RAIL_FIRST = ['Amtrak', 'Via', 'Brightline'];   // whose name a merged place goes by
+let ttPlacesMemo = null;
+function ttPlaces() {
+  if (ttPlacesMemo) return ttPlacesMemo;
+  const list = tt.stations, up = list.map((_, i) => i);
+  const root = (i) => (up[i] === i ? i : (up[i] = root(up[i])));
+  // Amtrak's codes and the commuter railroads' (ML-123) are the live list's own. Another railroad's code can be someone
+  // else's there (Brightline's code for West Palm Beach is Amtrak's for Wolf Point), so its position counts only
+  // when the names share a word.
+  const words = (n) => new Set((n || '').toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 3 && !/^(station|amtrak|central)$/.test(w)));
+  const sameName = (a, b) => { const w = words(b); return [...words(a)].some((x) => w.has(x)); };
+  const pos = list.map((x) => {
+    if (x.lat != null && x.lon != null) return [x.lon, x.lat];   // from the timetable itself
+    const st = stations.get(x.code);
+    if (!st || !isFinite(st.lat) || !isFinite(st.lon)) return null;
+    return x.a.provider === 'Amtrak' || x.code.includes('-') || sameName(x.name, st.name) ? [st.lon, st.lat] : null;
+  });
+  const cells = new Map(), cell = (lat, lon) => Math.round(lat * 100) + ',' + Math.round(lon * 100);   // about 1 km
+  pos.forEach((p, i) => { if (p) { const k = cell(p[1], p[0]); cells.set(k, [...(cells.get(k) || []), i]); } });
+  pos.forEach((p, i) => {
+    if (!p) return;
+    const la = Math.round(p[1] * 100), lo = Math.round(p[0] * 100);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) {
+      for (const j of cells.get((la + a) + ',' + (lo + b)) || []) {
+        if (j > i && list[j].a !== list[i].a && RAIL.kmBetween(p, pos[j]) < SAME_STATION_KM) up[root(j)] = root(i);
+      }
+    }
+  });
+  const groups = new Map();
+  list.forEach((x, i) => groups.set(root(i), [...(groups.get(root(i)) || []), x]));
+  const rank = (x) => { const r = RAIL_FIRST.indexOf(x.a.provider); return r < 0 ? RAIL_FIRST.length : r; };
+  const places = [], byLabel = new Map(), labels = new Set();
+  for (const members of groups.values()) {
+    members.sort((x, y) => rank(x) - rank(y) || x.a.label.localeCompare(y.a.label));
+    const first = members[0], code = first.code.includes('-') ? '' : first.code;
+    const rail = [...new Set(members.map((x) => x.a.label))];
+    let label = `${first.name}${code ? ` (${code})` : ''} · ${rail.join(', ')}`;
+    if (labels.has(label.toLowerCase())) label = `${first.name} (${members.map((x) => x.code).join(', ')}) · ${rail.join(', ')}`;
+    labels.add(label.toLowerCase());
+    const place = { name: first.name, code, label, tz: first.tz, members, rail,
+      names: [...new Set(members.map((x) => x.name))], codes: members.map((x) => x.code.toLowerCase()) };
+    places.push(place);
+    byLabel.set(label.toLowerCase(), place);
+    for (const x of members) if (!byLabel.has(x.label.toLowerCase())) byLabel.set(x.label.toLowerCase(), place);   // a box filled before the merge
+  }
+  return (ttPlacesMemo = { places, byLabel });
 }
 const ymdDash = (n) => `${n.slice(0, 4)}-${n.slice(4, 6)}-${n.slice(6, 8)}`;
 const ymdUtc = (n, k = 0, h = 0) => Date.UTC(+n.slice(0, 4), +n.slice(4, 6) - 1, +n.slice(6, 8) + k, h);
@@ -5960,6 +6130,172 @@ async function dropTrip(id) {
   if (topScreen() && topScreen().type === 'train') renderDetail();
 }
 
+/* The passport: every trip in the account whose train has reached the rider's stop on the timetable. Distances are
+   measured along the track from the rail network, so they need nothing but the trip itself. */
+const passportTrips = () => myTrips.filter((p) => p.to.at <= Date.now());
+function tripKm(p) {
+  const coords = stationsLoaded && legCoords(p.from.code, p.to.code);
+  if (!coords) return null;
+  const km = measure(coords).pop();
+  return coords.length > 2 ? km : km * 1.2;   // no track between them: a straight line, plus the usual detour
+}
+const tripYear = (p) => localYmd(p.from.at, p.from.tz).slice(0, 4);
+const COAST_KM = 4800;   // New York to Los Angeles by train, about
+let passportYear = 'all', passportFit = false, passportHi = null;   // hi: the trip whose line is picked out
+function passportStats(trips) {
+  const kms = trips.map(tripKm);
+  const known = kms.every((k) => k != null);
+  const stationCodes = new Set(trips.flatMap((p) => [p.from.code, p.to.code]));
+  const states = new Set([...stationCodes].map((c) => stations.get(c) && stations.get(c).state).filter(Boolean));
+  const routes = new Map();
+  trips.forEach((p, i) => {
+    const key = p.provider + '|' + p.route;
+    const r = routes.get(key) || { provider: p.provider, route: p.route, n: 0, km: 0, trip: p };
+    r.n++; r.km += kms[i] || 0;
+    routes.set(key, r);
+  });
+  const fav = [...routes.values()].sort((a, b) => b.n - a.n || b.km - a.km)[0] || null;
+  const iLong = kms.reduce((best, k, i) => (k != null && (best < 0 || k > kms[best]) ? i : best), -1);
+  return {
+    trips: trips.length,
+    overnight: trips.filter((p) => localYmd(p.to.at, p.to.tz) !== localYmd(p.from.at, p.from.tz)).length,
+    km: known ? kms.reduce((a, k) => a + k, 0) : null,
+    ms: trips.reduce((a, p) => a + (p.to.at - p.from.at), 0),
+    stations: stationCodes.size, states: states.size,
+    railroads: new Set(trips.map((p) => p.provider)).size,
+    longest: iLong >= 0 ? { trip: trips[iLong], km: kms[iLong] } : null,
+    fav,
+  };
+}
+const fmtSpan = (ms0) => {
+  const m = Math.round(ms0 / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+  if (m >= 2880) return `${d}d${h ? ' ' + h + 'h' : ''}`;   // days once it's two or more
+  const hh = Math.floor(m / 60);
+  return hh ? `${hh}h${m % 60 ? ' ' + (m % 60) + 'm' : ''}` : m + 'm';
+};
+/* A trip's line, drawn small: its shape along the track, fitted into w by h. */
+function sketchSVG(p, w = 130, h = 64) {
+  const coords = stationsLoaded && legCoords(p.from.code, p.to.code);
+  if (!coords) return '';
+  const pr = d3.geoMercator().fitExtent([[6, 6], [w - 6, h - 6]], { type: 'LineString', coordinates: coords });
+  const a = pr(coords[0]), b = pr(coords[coords.length - 1]);
+  return `<svg class="pp-sketch" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d3.geoPath(pr)({ type: 'LineString', coordinates: coords })}"/>`
+    + `<circle cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="4"/><circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="4"/></svg>`;
+}
+function passportShown() {
+  const all = passportTrips();
+  return passportYear === 'all' ? all : all.filter((p) => tripYear(p) === passportYear);
+}
+function renderPassport() {
+  const box = $('#passport');
+  if (!session) {
+    box.innerHTML = '<div class="hero hero-empty"><div class="hero-title">Your passport</div>'
+      + '<p class="hero-status">Every train you take, on one map, with the miles and hours added up. Sign in and add the trains you ride.</p>'
+      + '<div class="hero-acts"><button type="button" class="btn primary" data-pp="signin">Sign in</button></div></div>';
+    return;
+  }
+  const all = passportTrips();
+  if (!all.length) {
+    const soon = myTrips.length;
+    box.innerHTML = '<div class="hero hero-empty"><div class="hero-title">Your passport fills in as you ride</div>'
+      + `<p class="hero-status">A trip you add shows up here once its train reaches your stop.${soon ? ` You have ${plural(soon, 'trip')} coming up.` : ''}</p>`
+      + '<div class="hero-acts"><button type="button" class="btn primary" data-pp="plan">Add a train</button></div></div>';
+    return;
+  }
+  const years = [...new Set(all.map(tripYear))].sort().reverse();
+  if (passportYear !== 'all' && !years.includes(passportYear)) passportYear = 'all';
+  const trips = passportShown().slice().reverse();   // most recent first
+  const st = passportStats(trips);
+  const label = passportYear === 'all' ? 'All-time' : passportYear;
+  const chip = (v, text) => `<button type="button" class="chip" data-pp-year="${v}" aria-pressed="${passportYear === v}">${text}</button>`;
+  const stat = (cls, name, value, sub = '') => `<div class="${cls}"><dt>${name}</dt><dd>${value}${sub ? `<small>${sub}</small>` : ''}</dd></div>`;
+  const dist = st.km == null ? '—' : fmtMi(st.km);
+  const coast = st.km == null ? 'Measuring once stations load' : st.km >= COAST_KM * 0.95
+    ? `${(st.km / COAST_KM).toFixed(1)}× coast to coast` : `${Math.max(1, Math.round(st.km / COAST_KM * 100))}% of the way coast to coast`;
+  const L = st.longest, F = st.fav;
+  box.innerHTML = (years.length > 1 || years[0] !== String(new Date().getFullYear())
+      ? `<div class="pp-years" role="group" aria-label="Which trips">${chip('all', 'All-time')}${years.map((y) => chip(y, y)).join('')}</div>` : '')
+    + `<section class="pp-card pp-main" aria-label="${label} passport"><h3>${label} Trackside passport<small>Passport · Passeport · Pasaporte</small></h3>`
+    + '<dl class="pp-stats">'
+    + stat('big', 'Trips', st.trips, st.overnight ? plural(st.overnight, 'overnight', 'overnight') : '')
+    + stat('wide big', 'Distance', dist, coast)
+    + stat('', 'On board', fmtSpan(st.ms))
+    + stat('', 'Stations', st.stations, st.states > 1 ? `in ${st.states} states` : '')
+    + stat('', 'Railroads', st.railroads)
+    + '</dl></section>'
+    + (L ? `<section class="pp-card pp-long" aria-label="Longest ride">${sketchSVG(L.trip)}<div class="pp-text"><div class="pp-num">${esc(fmtMi(L.km))}</div>`
+      + `<p><b>Longest ride</b></p><p class="pp-sub">${esc(L.trip.from.name)} to ${esc(L.trip.to.name)}<br>${esc(L.trip.num)} ${esc(L.trip.route)} · ${esc(fmtSpan(L.trip.to.at - L.trip.from.at))}</p></div></section>` : '')
+    + (F ? `<section class="pp-card pp-fav" aria-label="Most ridden route">${sketchSVG(F.trip)}<div class="pp-text"><h3>Most ridden route</h3>`
+      + `<div class="pp-name">${esc(F.route)}</div><p class="pp-sub">${plural(F.n, 'trip')}${F.km ? ' · ' + esc(fmtMi(F.km)) : ''}${F.provider !== 'Amtrak' ? ' · ' + esc(provName(F.provider)) : ''}</p></div></section>` : '')
+    + '<p class="pp-note">Distances are measured along the track and are approximate. Times are from the timetable.</p>'
+    + `<div class="pp-trips"><h4>${plural(trips.length, 'trip')}${passportYear === 'all' ? '' : ' in ' + passportYear}</h4>`
+    + trips.map((p) => { const km = tripKm(p); return `<button type="button" class="pp-row" data-pp-trip="${esc(p.id)}"><b>${esc(p.from.name)} → ${esc(p.to.name)}</b>`
+      + `<span class="pp-km">${km == null ? '' : esc(fmtMi(km))}</span><span>${esc(fmt(p.from.tz, { month: 'short', day: 'numeric', year: 'numeric' }).format(p.from.at))} · ${esc(p.num)} ${esc(p.route)}</span></button>`; }).join('')
+    + '</div>';
+  drawPassportMap();
+}
+$('#passport').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pp], [data-pp-year], [data-pp-trip]');
+  if (!b) return;
+  if (b.dataset.pp === 'signin') openAccount('auth', 'Sign in to keep a passport.');
+  else if (b.dataset.pp === 'plan') openPlan();
+  else if (b.dataset.ppYear) { passportYear = b.dataset.ppYear; passportHi = null; passportFit = true; renderPassport(); }
+  else {
+    const p = myTrips.find((q) => q.id === b.dataset.ppTrip);
+    const coords = p && legCoords(p.from.code, p.to.code);
+    if (!coords) return;
+    passportHi = p.id;
+    drawPassportMap();
+    flyToBounds(boundsOf(coords, 0.1), 60);
+    if (mqMobile.matches) setSheet('collapsed');
+  }
+});
+/* The lines of every trip shown, on the main map, while the Passport tab is open. Where trips share track the lines
+   stack, so the stretches ridden most come out strongest. */
+let passportDots = [];
+function drawPassportMap() {
+  const on = tab === 'passport' && !topScreen() && !!session && stationsLoaded;
+  mapEl.classList.toggle('passport-on', on);
+  gPassport.selectAll('*').remove();
+  passportDots = [];
+  if (on) {
+    const trips = passportShown();
+    const lls = [];
+    const seen = new Map();
+    for (const p of trips) {
+      const coords = legCoords(p.from.code, p.to.code);
+      if (!coords) continue;
+      lls.push(...coords);
+      const d = geoPath({ type: 'LineString', coordinates: coords });
+      gPassport.append('path').attr('class', 'casing').attr('d', d);
+      gPassport.append('path').attr('class', 'line' + (p.id === passportHi ? ' on' : '')).attr('d', d);
+      for (const s of [p.from, p.to]) {
+        const stn = stations.get(s.code);
+        if (stn && !seen.has(stn.code)) seen.set(stn.code, { p: stn.p, label: stn.city || s.name, n: 0 });
+        if (stn) seen.get(stn.code).n++;
+      }
+    }
+    gPassport.select('.line.on').raise();
+    passportDots = [...seen.values()].sort((a, b) => b.n - a.n);   // busiest first, so they keep their labels
+    if (passportFit && lls.length) { passportFit = false; flyToBounds(boundsOf(lls, 0.4), 40); }
+  }
+  const g = gPassportPts.selectAll('g').data(passportDots).join((en) => { const x = en.append('g'); x.append('circle').attr('r', 4); x.append('text').attr('x', 7).attr('y', 4); return x; });
+  g.select('text').text((d) => d.label);
+  positionPassport();
+}
+function positionPassport() {
+  const placed = [];
+  gPassportPts.selectAll('g').each(function (d) {
+    const x = T.applyX(d.p[0]), y = T.applyY(d.p[1]);
+    this.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
+    // a label that would sit on top of a busier station's is left off
+    const box = [x + 6, y - 9, x + 10 + d.label.length * 7, y + 6];
+    const clash = placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+    if (!clash) placed.push(box);
+    this.lastChild.style.display = clash ? 'none' : '';
+  });
+}
+
 /* "Today", "Tomorrow", or "Sat, Oct 17", for a time at a station */
 function dayWord(at, tz) {
   const d = localYmd(at, tz), today = localYmd(Date.now(), tz);
@@ -6014,6 +6350,7 @@ function showTripTrain(p) {
 }
 function renderMyTrips() {
   if (tab === 'home' && !topScreen()) renderHome();   // Home shows the same trips
+  if (tab === 'passport' && !topScreen()) renderPassport();
   const el = $('#mtList');
   $('#mtSec').hidden = !ACCOUNTS_API;
   if (!session) {
@@ -6023,9 +6360,10 @@ function renderMyTrips() {
   }
   const ahead = myTrips.filter((p) => !tripDone(p)), past = myTrips.filter(tripDone).reverse();
   $('#mtCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
+  const pastOpen = el.querySelector('.mt-past[open]') ? ' open' : '';   // stays open across refreshes
   el.innerHTML = (ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p)).join('')}</div>`
     : '<p class="hint">No trips yet. Plan one below or add from a train.</p>')
-    + (past.length ? `<details class="mt-past"><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
+    + (past.length ? `<details class="mt-past"${pastOpen}><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
 }
 async function onTripCards(e) {
   if (e.target.closest('#mtSignIn')) { openAccount('auth', 'Sign in to save trips.'); return; }
@@ -6441,6 +6779,40 @@ function syncPlanMode() {
   $('.plan-st').hidden = byNum;
   $('.plan-num').hidden = !byNum;
 }
+/* Stations in the timetables for the planner's boxes, best first, from every railroad alike: the code, then names that
+   start with what's typed, then names with a word that does, then names that merely contain it. */
+function matchTimetableStations(s, limit = 10) {
+  if (!tt) return [];
+  const out = [], whole = new RegExp('\\b' + s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+  for (const p of ttPlaces().places) {
+    // a merged place matches by any of its railroads' names or codes
+    let sc = p.codes.includes(s) ? 3.5 : 0, hit = p.name;
+    for (const n of p.names) {
+      const name = n.toLowerCase();
+      // the whole word typed beats a longer one that starts with it: "penn" finds Penn Station before Penny
+      const k = (name.startsWith(s) ? 3 : wordStart(name, s) ? 2 : s.length >= 3 && name.includes(s) ? 1 : 0) || 0;
+      const v = k ? k + (whole.test(name) ? 1.5 : 0) : 0;
+      if (v > sc) { sc = v; hit = n; }
+    }
+    if (sc) out.push({ sc, st: p, hit });
+  }
+  return out.sort((a, b) => b.sc - a.sc || b.st.rail.length - a.st.rail.length || a.st.name.length - b.st.name.length || a.st.name.localeCompare(b.st.name)).slice(0, limit);
+}
+const ttPicker = {
+  match: (s) => (tt && ttPlaces().byLabel.has(s) ? null : matchTimetableStations(s)),
+  // a place found by another railroad's name says so: Boston South, "South Station" for the MBTA
+  item: (x, s) => `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(x.st.rail.join(' · '))}${x.st.code ? ' · ' + esc(x.st.code) : ''}`
+    + `${x.hit !== x.st.name ? ' · ' + esc(x.hit) : ''}</small></span>`,
+  fill: (x) => x.st.label,
+};
+stationPicker($('#planFrom'), $('#planFromSugg'), () => {}, ttPicker);
+stationPicker($('#planTo'), $('#planToSugg'), () => {}, ttPicker);
+/* Swap the stations; trains already found are looked up again the other way. */
+$('#planSwap').addEventListener('click', () => {
+  const a = $('#planFrom'), b = $('#planTo');
+  [a.value, b.value] = [b.value, a.value];
+  if ($('#planOut').querySelector('.plan-res, .plan-note') && a.value && b.value) $('#planForm').requestSubmit();
+});
 async function openPlan() {
   closePops();
   $('#plan').hidden = false;
@@ -6457,7 +6829,6 @@ async function openPlan() {
   setTimeout(() => (planMode() === 'number' ? $('#planNum') : $('#planFrom')).focus(), 30);
   try {
     await loadTimetables();
-    if (!$('#ttStations').options.length) $('#ttStations').innerHTML = tt.stations.map((s) => `<option value="${esc(s.label)}"></option>`).join('');
   } catch {
     showErr($('#planForm .acct-err'), 'Timetables didn’t load. Try again.');
   }
@@ -6476,9 +6847,9 @@ function openPlanPick(run) {
 function findStation(text) {
   const q = text.trim().toLowerCase();
   if (!q) return null;
-  const exact = tt.byLabel.get(q);
-  if (exact) return exact;
-  const hits = tt.stations.filter((s) => s.name.toLowerCase() === q || s.code.toLowerCase() === q);
+  const { places, byLabel } = ttPlaces();
+  if (byLabel.has(q)) return byLabel.get(q);
+  const hits = places.filter((p) => p.codes.includes(q) || p.names.some((n) => n.toLowerCase() === q));
   return hits.length === 1 ? hits[0] : null;
 }
 /* Railroads publish their timetables a few weeks to a few months ahead. Past that, trains that run only on certain days
@@ -6528,14 +6899,17 @@ $('#planForm').addEventListener('submit', async (e) => {
   }
   const from = findStation($('#planFrom').value), to = findStation($('#planTo').value);
   if (!from || !to) { showErr(err, `Pick ${!from ? 'a start' : 'an end'} station from the list.`); return; }
-  if (from.a !== to.a) { showErr(err, `Stations must be on one railroad.`); return; }
   if (from === to) { showErr(err, 'Pick two different stations.'); return; }
-  planHits = runsBetween(from, to, n);
+  // every railroad that stops at both places
+  const legs = from.members.flatMap((f) => to.members.filter((t) => t.a === f.a).map((t) => [f, t]));
+  if (!legs.length) { showErr(err, `No one railroad stops at both ${from.name} and ${to.name}. Trips with a change of trains can't be planned yet.`); return; }
+  planHits = dedupe(legs.flatMap(([f, t]) => runsBetween(f, t, n)), (x) => x.run.provider + '|' + x.run.num + '|' + x.run.stops[x.i].dep)
+    .sort((x, y) => x.run.stops[x.i].dep - y.run.stops[y.i].dep);
   planRuns = planHits.map((h) => h.run);
   $('#planOut').innerHTML = (planHits.length
     ? `<p class="plan-note">${plural(planHits.length, 'train')} from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)}, by the published timetable.</p>` + planHits.map(resultHTML).join('')
     : `<p class="plan-note">No trains from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)} in the published timetable.</p>`)
-    + validNote([from.a], n);
+    + validNote([...new Set(legs.map(([f]) => f.a))], n);
 });
 $$('input[name="planMode"]').forEach((r) => r.addEventListener('change', () => { syncPlanMode(); $('#planOut').innerHTML = ''; }));
 $('#planOut').addEventListener('click', async (e) => {
@@ -6709,12 +7083,14 @@ function addStations(json) {
 }
 function stationsChanged() {
   const wall = Date.now();
+  ttPlacesMemo = null;   // the planner's places merge by position
   legCache.clear();
   for (const t of trains) setupMotion(t, t, wall);
   renderStations();
   drawRoute();
   drawNetwork();
   if (!topScreen() && tab === 'stations') renderStationsTab();
+  if (!topScreen() && tab === 'passport') renderPassport();   // distances need the stations
   if (topScreen() && topScreen().type === 'train') renderDetail();
   resolveHash();
 }

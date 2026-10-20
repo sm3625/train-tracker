@@ -71,7 +71,7 @@ To change a key later, update `../.env` and run `npm run deploy` again.
 ## Try it locally
 
 ```bash
-npm run dev          # serves the worker on http://localhost:8787 using the keys in ../.env
+npm run dev          # serves the worker and the site on http://localhost:8787 using the keys in ../.env
 ```
 
 A copy of `index.html` opened from disk or `localhost` uses this local server automatically until
@@ -217,6 +217,9 @@ number. Once the train is running, the trip shows its live times at their own st
 Trips are stored in the accounts database (the `trips` table, `migrations/0002_trips_and_resets.sql`) through the
 same store interface as everything else, so they move with it. Each is matched to the live train by railroad,
 train number and the date the train leaves its first station.
+
+Trips stay in the account after they're over: they're the person's record of rides, and the site's passport is
+built from them. So only upcoming trips count toward the limit of 200, with up to 5,000 kept in all.
 
 ## Friends
 

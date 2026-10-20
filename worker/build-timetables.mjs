@@ -3,17 +3,20 @@
 // ../data/timetables.json, which the site loads to find trains on any date, for planning trips ahead.
 //
 //   node build-timetables.mjs        (or: npm run timetables)
+//   node build-timetables.mjs NJ     only the railroads named (by id, or provider as "Amtrak"), keeping the others' as they are
 //
 // Sources: Amtrak, VIA Rail and Brightline below, then every commuter railroad in src/agencies.js (with the same
-// station codes and train numbers as the live feeds). Caltrain's comes from 511.org, which needs CALTRAIN_511_KEY
-// (from ../.env or the environment). If a source fails, its previous timetable is kept.
+// station codes and train numbers as the live feeds). Caltrain's comes from 511.org, which needs CALTRAIN_511_KEY, and
+// NJ Transit's from its signed-in API, which needs NJT_USERNAME and NJT_PASSWORD (and NJT_HOST for the production
+// host), all from ../.env or the environment. If a source fails, its previous timetable is kept.
 // Amtrak's feed covers about a week ahead and is republished weekly, so .github/workflows/timetables.yml reruns
 // this every Monday.
 //
 // Output (times are minutes after "noon minus 12 hours" on the train's service day, in the route's time zone,
 // which is how GTFS counts them; service days follow the calendar rules below):
 //   { v, built, agencies: [{ provider, valid: [from, to],
-//       stations: [[code, name, tz]], routes: [[name, tz]],
+//       stations: [[code, name, tz, lat, lon]], routes: [[name, tz]],   lat/lon: where it is, for finding one station
+//                                                                     listed by two railroads (null if the feed doesn't say)
 //       services: [[weekdays, start, end, [added dates], [removed dates]]],   weekdays: bit 0 Monday … bit 6 Sunday
 //       trains: [[number, route, service, [station, arrive, depart, station, arrive, depart, …]]] }] }
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -24,31 +27,40 @@ import { AGENCIES } from './src/agencies.js';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(dir, '..', 'data', 'timetables.json');
-const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+// a day back from UTC's date: it's still yesterday in North America for hours after midnight UTC, and that day's
+// trains are still being planned and ridden
+const today = new Date(Date.now() - 86400000).toISOString().slice(0, 10).replace(/-/g, '');
 const isRail = (r) => r.route_type === '2';
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 /* provider: the name the live feeds use, so a planned trip can be matched to the running train. */
 const SOURCES = [
   {
-    provider: 'Amtrak',
+    id: 'Amtrak', provider: 'Amtrak',
     url: 'https://content.amtrak.com/content/gtfs/GTFS.zip',
     keepRoute: isRail,   // trains only; Amtrak's feed also carries Thruway buses
     code: (s) => s.stop_id,
   },
   {
-    provider: 'Via',
+    id: 'Via', provider: 'Via',
     url: 'https://www.viarail.ca/sites/all/files/gtfs/viarail.zip',
     code: (s) => s.stop_code || s.stop_id,   // VIA's four-letter codes, as in the live feed (TRTO, VCVR)
   },
   {
-    provider: 'Brightline',
+    id: 'Brightline', provider: 'Brightline',
     url: 'https://feed.gobrightline.com/bl_gtfs.zip',
     code: (s) => s.stop_id,
     routeName: () => 'Brightline',
   },
   ...AGENCIES.map((a) => ({
-    provider: a.provider,
+    id: a.id, provider: a.provider,
+    // a timetable behind a sign-in (NJ Transit's) is fetched with the railroad's own download, as build-schedules does
+    load: a.gtfs.download && (async () => {
+      const keys = [].concat(a.key || []);
+      const creds = Object.fromEntries(await Promise.all([...keys, 'NJT_HOST'].map(async (k) => [k, await envKey(k, dir)])));
+      if (keys.some((k) => !creds[k])) throw new Error(`no ${keys.join(' and ')} in ../.env or the environment`);
+      return a.gtfs.download(creds);
+    }),
     url: typeof a.gtfs.url === 'function'
       ? async () => {
         const k = await envKey(a.key, dir);
@@ -127,7 +139,9 @@ function build(g, src) {
     const code = src.code(s);
     if (!stationIdx.has(code)) {
       stationIdx.set(code, stations.length);
-      stations.push([code, (src.stationName ? src.stationName(s.stop_name) : s.stop_name).trim(), s.stop_timezone || raw.stop_timezone || '']);
+      const at = (v) => (v === '' || !isFinite(+v) ? null : Math.round(+v * 1e5) / 1e5);
+      stations.push([code, (src.stationName ? src.stationName(s.stop_name) : s.stop_name).trim(), s.stop_timezone || raw.stop_timezone || '',
+        at(s.stop_lat ?? raw.stop_lat), at(s.stop_lon ?? raw.stop_lon)]);
     }
     return stationIdx.get(code);
   };
@@ -186,12 +200,20 @@ function build(g, src) {
 let previous = null;
 try { previous = JSON.parse(await readFile(OUT, 'utf8')); } catch { /* first run */ }
 
+const only = process.argv.slice(2).map((x) => x.toLowerCase());
+const unknown = only.filter((x) => !SOURCES.some((s) => s.id.toLowerCase() === x || s.provider.toLowerCase() === x));
+if (unknown.length) { console.error(`No railroad called ${unknown.join(', ')}. Use: ${SOURCES.map((s) => s.id).join(', ')}`); process.exit(1); }
 const agencies = [];
 let failures = 0;
 for (const src of SOURCES) {
+  if (only.length && !only.includes(src.id.toLowerCase()) && !only.includes(src.provider.toLowerCase())) {
+    const old = previous && previous.agencies.find((a) => a.provider === src.provider);
+    if (old) agencies.push(old);
+    continue;
+  }
   try {
-    const url = typeof src.url === 'function' ? await src.url() : src.url;
-    const a = build(await readGtfs(await downloadFirst(url), { inner: src.inner, keep: src.keepRoute && onlyRoutes(src.keepRoute) }), src);
+    const zip = src.load ? await src.load() : await downloadFirst(typeof src.url === 'function' ? await src.url() : src.url);
+    const a = build(await readGtfs(zip, { inner: src.inner, keep: src.keepRoute && onlyRoutes(src.keepRoute) }), src);
     if (!a.trains.length) throw new Error('the feed had no current trains');
     agencies.push(a);
     console.log(`${src.provider}: ${a.trains.length} train runs, ${a.stations.length} stations, valid ${a.valid[0]}–${a.valid[1]}`);
@@ -204,7 +226,7 @@ for (const src of SOURCES) {
 }
 if (!agencies.length) { console.error('No timetables could be built.'); process.exit(1); }
 
-const out = { v: 1, built: new Date().toISOString().slice(0, 10), agencies };
+const out = { v: 1, built: new Date().toISOString().slice(0, 10), agencies };   // the app keeps whichever copy is newer
 await mkdir(path.dirname(OUT), { recursive: true });
 await writeFile(OUT, JSON.stringify(out));
 console.log(`Wrote ${path.relative(process.cwd(), OUT)} (${Math.round(JSON.stringify(out).length / 1024)} KB)`);

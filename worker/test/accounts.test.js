@@ -198,6 +198,22 @@ test('trips', async () => {
   assert.deepEqual((await call('GET', '/v1/me/trips', { token })).body.trips.map((t) => t.num), ['7']);
 });
 
+test('past trips are kept and don’t count toward the limit', async () => {
+  const { call } = server();
+  const token = (await call('POST', '/v1/auth/signup', { body: creds })).body.token;
+  const trip = (num, daysAhead) => {
+    const date = new Date(Date.now() + daysAhead * 86400000).toISOString().slice(0, 10), at = Date.parse(date + 'T12:00:00Z');
+    return { provider: 'Amtrak', num, date, route: 'Northeast Regional',
+      from: { code: 'NYP', name: 'New York', at, tz: 'America/New_York' }, to: { code: 'WAS', name: 'Washington', at: at + 3 * 3600000, tz: 'America/New_York' } };
+  };
+  for (let i = 1; i <= 200; i++) assert.equal((await call('POST', '/v1/me/trips', { token, body: trip(String(i), 3) })).status, 201);
+  const full = await call('POST', '/v1/me/trips', { token, body: trip('201', 3) });
+  assert.equal(full.status, 409);
+  assert.equal(full.body.error.code, 'too_many');
+  assert.equal((await call('POST', '/v1/me/trips', { token, body: trip('201', -3) })).status, 201);   // one already taken
+  assert.equal((await call('GET', '/v1/me/trips', { token })).body.trips.length, 201);
+});
+
 test('usernames', async () => {
   const { call } = server();
   const up = await call('POST', '/v1/auth/signup', { body: { ...creds, username: ' @Zephyr_Fan ' } });

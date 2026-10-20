@@ -1,7 +1,8 @@
 # Rebuilds data/timetables.json from the railroads' public timetable feeds and commits it when it changes.
 # Amtrak republishes its feed weekly, covering about a week ahead, so this runs every Monday.
-# Needs one repository secret, CALTRAIN_511_KEY (Settings > Secrets and variables > Actions); without it,
-# Caltrain keeps its previous timetable and the run is marked as failed.
+# Needs repository secrets (Settings > Secrets and variables > Actions): CALTRAIN_511_KEY for Caltrain, and
+# NJT_USERNAME, NJT_PASSWORD and NJT_HOST for NJ Transit (each sign-in counts toward NJ's 10 a day). A railroad whose
+# secrets are missing keeps its previous timetable and the run is marked as failed.
 name: Refresh timetables
 
 on:
@@ -26,6 +27,9 @@ jobs:
         run: node worker/build-timetables.mjs
         env:
           CALTRAIN_511_KEY: ${{ secrets.CALTRAIN_511_KEY }}
+          NJT_USERNAME: ${{ secrets.NJT_USERNAME }}
+          NJT_PASSWORD: ${{ secrets.NJT_PASSWORD }}
+          NJT_HOST: ${{ secrets.NJT_HOST }}
       - name: Commit if anything changed
         run: |
           git add data/timetables.json

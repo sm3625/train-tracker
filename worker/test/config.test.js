@@ -24,3 +24,10 @@ test('the iOS and Android apps\' origins are among the worker\'s ALLOWED_ORIGINS
     assert.ok(allowed.includes(origin), `the app loads from ${origin}, but ALLOWED_ORIGINS is ${allowed.join(', ')}`);
   }
 });
+
+test('the page\'s PUBLIC_SITE is SITE_URL', async () => {
+  // the page reads the published timetables from there when it can't read its own (opened from disk)
+  const html = await readFile(path.join(dir, '..', '..', 'index.html'), 'utf8');
+  const site = (html.match(/^const PUBLIC_SITE = '([^']*)';/m) || [])[1];
+  assert.equal(site, setting('SITE_URL'));
+});

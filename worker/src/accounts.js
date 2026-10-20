@@ -35,7 +35,8 @@
    contacts never leave it as plain numbers. Matches are answered and forgotten; nothing uploaded is stored.
 
    A trip is one train on one day: provider and num as the live feeds name them, date the YYYY-MM-DD it starts its
-   run, and from/to { code, name, at, tz }: where the person boards and leaves, with scheduled times in ms.
+   run, and from/to { code, name, at, tz }: where the person boards and leaves, with scheduled times in ms. Trips stay
+   after they're over, as the record of the person's rides, so only upcoming ones count toward the trip limit.
 
    Signed-in requests carry "Authorization: Bearer <token>". A bearer token rather than a cookie, because the site
    (github.io) and this worker (workers.dev) are different sites and browsers increasingly block cross-site cookies.
@@ -73,7 +74,8 @@ const LIMITS = {
 const RESET_MS = 30 * 60000;
 const CODE_MS = 15 * 60000, CODE_TRIES = 5;   // a sign-up code lasts 15 minutes and allows 5 wrong tries
 const PROVIDERS = ['Amtrak', 'Via', 'Brightline', ...FEED_PROVIDERS];   // Amtraker's, then the feeds worker's
-const TRIPS_MAX = 200;
+const TRIPS_MAX = 200;       // upcoming trips
+const TRIPS_KEPT = 5000;     // every trip, past ones included
 const USERNAME = /^[a-z][a-z0-9_]{2,19}$/;
 const FRIENDS_MAX = 200;   // friends and requests, together
 const FRIEND_TRIPS_BACK = 4 * 86400000;   // the longest runs take about three days; older trips are surely over
@@ -406,7 +408,10 @@ export async function handleAccounts(req, env, ctx, url) {
     if (route === 'POST /v1/me/trips') {
       const { user } = await signedIn(req, store, now);
       const t = checkTrip(await body(req), now);
-      if ((await store.listTrips(user.id)).length >= TRIPS_MAX) throw new ApiError(409, 'too_many', `You can keep up to ${TRIPS_MAX} trips. Remove some old ones first.`);
+      const all = await store.listTrips(user.id);
+      const ahead = (x) => x.data.to.at + TRIP_DONE_MS > now;
+      if (ahead(t) && all.filter(ahead).length >= TRIPS_MAX) throw new ApiError(409, 'too_many', `You can plan up to ${TRIPS_MAX} trips ahead. Remove some first.`);
+      if (all.length >= TRIPS_KEPT) throw new ApiError(409, 'too_many', `You can keep up to ${TRIPS_KEPT} trips. Remove some old ones first.`);
       const trip = { id: crypto.randomUUID(), userId: user.id, ...t, createdAt: now };
       try { await store.addTrip(trip); } catch (err) {
         if (err instanceof StoreError && err.code === 'trip_exists') throw new ApiError(409, 'trip_exists', `Train ${t.num} on that day is already in your trips.`);

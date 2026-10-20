@@ -162,6 +162,8 @@ export const AGENCIES = [
     gtfs: {
       download: njtGtfs,
       keepRoute: () => true,   // every route in the feed is rail; its route_type is 113 (railway service), not 2
+      // NJ names its stations in capitals: "NEWARK PENN STATION" -> "Newark Penn Station", keeping MSU, NJ, NY and PHL
+      stationName: (n) => titleCase(n).replace(/\b(Msu|Nj|Ny|Phl)\b/g, (w) => w.toUpperCase()).replace(/\s*\[Rr\]$/, ''),
       num: (t) => (t.trip_short_name || t.trip_id).replace(/^0+/, ''),   // 0057 -> 57
     },
   },
