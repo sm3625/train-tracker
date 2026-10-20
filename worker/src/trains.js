@@ -4,6 +4,12 @@ import { STATUS, CANCELED, SKIPPED } from './gtfsrt.js';
 
 const MPS_TO_MPH = 2.236936;
 const MAX_MPH = 79;   // commuter trains in the US top out around here; caps the speed estimate below
+/* A live train whose predictions are this far from the run it matched is a different train: railroads reuse train
+   numbers across schedules, and trip ids across timetable versions (NJ Transit's), so an out-of-date timetable pairs
+   them with the wrong run. Matching anyway showed LIRR 2 (a 1:05 am run) 21 hours late and NJ Transit 6936 20 hours
+   early. Such a train is shown at its position with no times, rather than with made-up ones; no commuter train here
+   is that late for real. */
+const MATCH_MS = 3 * 3600000;
 
 /* ---------------- time helpers, per time zone ---------------- */
 const clocks = new Map();
@@ -126,14 +132,15 @@ function resolve(cands, sched, tu, desc, c, now) {
   return best;
 }
 
-/* The candidate runs for a live train: by trip id, or by train number (the entity id, or the trip id). */
+/* The candidate runs for a live train: by trip id, or by train number (the entity id, or the trip id).
+   byTrip says which, since a number can belong to several trains. */
 function candidates(sched, key, desc, mixed) {
-  if (desc.tripId && sched.trips && desc.tripId in sched.trips) return [sched.trips[desc.tripId]];
-  if (mixed) return [];
+  if (desc.tripId && sched.trips && desc.tripId in sched.trips) return { runs: [sched.trips[desc.tripId]], byTrip: true };
+  if (mixed) return { runs: [], byTrip: false };
   for (const n of [key, desc.tripId, ((desc.tripId || '').match(/\d+/) || [])[0]]) {
-    if (n && sched.nums[n]) return sched.nums[n];
+    if (n && sched.nums[n]) return { runs: sched.nums[n], byTrip: false };
   }
-  return [];
+  return { runs: [], byTrip: false };
 }
 
 export function buildTrains(agency, sched, feeds, now) {
@@ -152,7 +159,9 @@ export function buildTrains(agency, sched, feeds, now) {
     const veh = vehicles.get(key), tu = updates.get(key);
     const desc = { ...((tu && tu.trip) || {}), ...((veh && veh.trip) || {}) };
     if (tu && tu.trip && tu.trip.startDate) desc.startDate = tu.trip.startDate;
-    const fit = resolve(candidates(sched, key, desc, agency.mixed), sched, tu, desc, c, now);
+    const cands = candidates(sched, key, desc, agency.mixed);
+    let fit = resolve(cands.runs, sched, tu, desc, c, now);
+    if (fit && fit.score > MATCH_MS) fit = null;   // the same number or trip id, a different train
     if (!fit && (agency.mixed || !(veh && veh.position))) continue;   // a bus, or nothing to show
     // A timetabled train with no position that isn't due for over an hour, or finished two hours ago: nothing
     // useful to show. Checked before the stops are built, since feeds like Metro-North's list the whole day.

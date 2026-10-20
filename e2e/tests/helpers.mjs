@@ -7,13 +7,12 @@ const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '
 /* The page's clock is held at the moment the fixtures were recorded, so their trains look live. */
 export const RECORDED_AT = new Date(readFileSync(path.join(fixtures, 'recorded-at.txt'), 'utf8').trim());
 
-/* Opens the site on fixture data. welcomed: skip the create-account card a first visit shows. */
-export async function openSite(page, { welcomed = true } = {}) {
+/* Opens the site on fixture data. */
+export async function openSite(page) {
   await page.clock.setFixedTime(RECORDED_AT);
   await page.route('https://api-v3.amtraker.com/v3/trains', (r) => r.fulfill({ path: path.join(fixtures, 'amtraker-trains.json'), contentType: 'application/json' }));
   await page.route('https://api-v3.amtraker.com/v3/stations', (r) => r.fulfill({ path: path.join(fixtures, 'amtraker-stations.json'), contentType: 'application/json' }));
   await page.route('https://tiles.openfreemap.org/**', (r) => r.abort());   // map tiles: not what's under test
-  if (welcomed) await page.addInitScript(() => localStorage.setItem('trackside:welcomed', 'true'));
   await page.goto('/');
   await expect(page.locator('#list .row').first()).toBeVisible();
 }

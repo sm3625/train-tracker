@@ -24,10 +24,10 @@ test('search finds a train by number', async ({ page }) => {
   await expect(page.locator('#sugg')).toContainText('California Zephyr');
 });
 
-test('a first visit offers an account, and signing up works', async ({ page }) => {
-  await openSite(page, { welcomed: false });
-  await expect(page.locator('#acct')).toBeVisible();
-  await expect(page.locator('#acctTitle')).toHaveText('Create an account');
+test('a first visit goes straight to the map, and signing up works from the account button', async ({ page }) => {
+  await openSite(page);
+  await expect(page.locator('#acct')).toBeHidden();   // no account prompt in the way
+  await expect(page.locator('#list .row').first()).toBeVisible();
   await signUp(page);
   await expect(page.locator('#acctAvatar')).toBeVisible();
 });

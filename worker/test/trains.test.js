@@ -50,6 +50,26 @@ test('a train number stands in for a trip id the timetable does not have (Metro-
   assert.equal(t.stations[2].arr, c.iso(at(9 * H + 300 - 60)));
 });
 
+test('a train number that fits no run of that number within hours is another train: shown with no times', () => {
+  // LIRR 2: the live train runs at 10 pm, the timetable's 2 at 1 am; matching them made it 21 hours late
+  const agency = { ...AGENCY, joinBy: 'entity' };
+  const tu = { id: '101', tripUpdate: { trip: { tripId: 'new-schedule-7', startDate: day }, stops: [{ stopId: 'b', arrival: { time: at(20.5 * H) / 1000 } }] } };
+  const veh = { id: '101', vehicle: { trip: { tripId: 'new-schedule-7' }, position: { lat: 40.05, lon: -74 }, timestamp: at(20.3 * H) / 1000 } };
+  const [t] = buildTrains(agency, SCHED, [feed(tu, veh)], at(20.3 * H));
+  assert.equal(t.lat, 40.05);              // still on the map
+  assert.deepEqual(t.stations, []);        // with no invented schedule or delay
+  // without a position there's nothing true to show
+  assert.deepEqual(buildTrains(agency, SCHED, [feed(tu)], at(20.3 * H)), []);
+});
+
+test('a trip id hours off its run is another train too (NJ Transit reuses trip ids); two hours late is kept', () => {
+  const tu = (sec) => ({ id: 'u', tripUpdate: { trip: { tripId: 't-101', startDate: day }, stops: [{ stopId: 'b', arrival: { time: at(sec) / 1000 } }] } });
+  const veh = vehicle('v1', 't-101', { timestamp: at(10.2 * H) / 1000 });
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [feed(tu(14.5 * H), veh)], at(10.2 * H))[0].stations, []);   // six hours off
+  const [t] = buildTrains(AGENCY, SCHED, [feed(tu(10.5 * H), veh)], at(10.2 * H));
+  assert.equal(t.stations[1].arr, c.iso(at(10.5 * H)));   // two hours late: real, kept
+});
+
 test('a delay alone, against a stop_sequence, is applied to the timetable (SEPTA, Tri-Rail)', () => {
   const tu = { id: 'u', tripUpdate: { trip: { tripId: 't-102', startDate: day }, stops: [{ stopSeq: 7, arrival: { delay: 420 } }] } };
   const [t] = buildTrains(AGENCY, SCHED, [feed(tu)], at(10.2 * H));

@@ -6,9 +6,22 @@ test('signed out, Home invites a sign-in and offers the map', async ({ page }) =
   await openSite(page);
   await openSheet(page);
   await page.locator('#tab-home').click();
-  await expect(page.locator('#homeHero')).toContainText('Your trips, at a glance');
+  await expect(page.locator('#homeHero')).toContainText('Find your train');
   await page.locator('[data-hero="explore"]').click();
   await expect(page.locator('#tab-explore')).toHaveAttribute('aria-selected', 'true');
+});
+
+test('signed out, Home shows recently viewed trains, kept on this device', async ({ page }) => {
+  await openSite(page);
+  await openSheet(page);
+  await page.locator('#tab-explore').click();
+  const row = page.locator('#list .row').first();
+  const id = await row.getAttribute('data-id');
+  await row.click();
+  await page.locator('#back').click();
+  await page.locator('#tab-home').click();
+  await expect(page.locator('#homeSaved')).toContainText('Recently viewed');
+  await expect(page.locator(`#homeSaved [data-id="${id}"]`)).toBeVisible();
 });
 
 test('with no trips, Home offers to add a train', async ({ page }) => {
