@@ -9,7 +9,7 @@ test('search finds Boston South by the MBTA\'s name, once', async ({ page }) => 
   const opts = page.locator('#sugg .sg-opt', { hasText: 'Boston' });
   await expect(opts.first()).toBeVisible();
   await expect(page.locator('#sugg .sg-opt', { hasText: /^South Station/ })).toHaveCount(0);
-  await expect(opts.first()).toContainText('also MBTA');
+  await expect(opts.first()).toContainText('Amtrak, MBTA');
 });
 
 test('Providence is one station, Amtrak\'s and the MBTA\'s', async ({ page }) => {
@@ -20,7 +20,7 @@ test('Providence is one station, Amtrak\'s and the MBTA\'s', async ({ page }) =>
   const stationRows = page.locator('#sugg .sg-opt', { hasText: /^Providence\s*(PVD|MBTA)/ });
   await expect(stationRows).toHaveCount(1);
   await expect(stationRows).toContainText('PVD');
-  await expect(stationRows).toContainText('also MBTA');
+  await expect(stationRows).toContainText('Amtrak, MBTA');
 });
 
 test('trains between stations include every railroad at a shared station', async ({ page }) => {
@@ -34,4 +34,14 @@ test('trains between stations include every railroad at a shared station', async
   await page.locator('#toSugg .sg-opt').first().click();
   await page.locator('#tripPast').check();
   await expect(page.locator('#tripResults .trip-row', { hasText: 'Fall River/New Bedford Line' })).toBeVisible();
+});
+
+test('a shared station names all its operators on its page', async ({ page }) => {
+  await openSite(page);
+  await page.evaluate(() => { location.hash = '#s-WAS'; });   // Amtrak, MARC and VRE
+  const head = page.locator('#station .st-head');
+  await expect(head).toContainText('Amtrak');
+  await expect(head).toContainText('MARC');
+  await expect(head).toContainText('VRE');
+  await expect(head).not.toContainText('also');
 });

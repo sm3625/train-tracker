@@ -280,29 +280,30 @@ button:disabled { cursor: default; opacity: .5; }
 
 .list { display: grid; padding: 0 0 10px; }
 .row {
-  display: grid; grid-template-columns: 9px 58px minmax(0, 1fr) auto; align-items: center; column-gap: 12px;
+  display: grid; grid-template-columns: 9px minmax(36px, auto) minmax(0, 1fr) minmax(0, auto); align-items: center; column-gap: 10px;
   width: 100%; text-align: left; border: 0; background: transparent; padding: 10px 20px;
 }
 .row:hover { background: var(--paper-2); }
 .row.cur { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--ink); }
 .lamp { width: 9px; height: 9px; border-radius: 50%; background: var(--sig); flex: none; }
-.r-num { font-size: 22px; font-weight: 800; line-height: 1; padding-top: 3px; letter-spacing: -.01em; }
+.r-num { font-size: 18px; font-weight: 800; line-height: 1; padding-top: 3px; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .r-main { min-width: 0; display: grid; }
 .r-main b { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .r-main small { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.r-main .r-next { color: var(--ink); display: flex; gap: 6px; min-width: 0; }
-.r-main .r-next .nx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.r-main .r-next { color: var(--ink); display: flex; gap: 6px; min-width: 0; white-space: normal; align-items: baseline; }
+/* the next stop is the point of the row: it wraps to a second line rather than being cut to "Next: Per…" */
+.r-main .r-next .nx { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
 .r-main .r-next b { flex: none; font-weight: 700; }
 .r-main .r-next em { flex: none; font-style: normal; color: var(--muted); }
 .r-main .r-meta { color: var(--faint); font-size: 12.5px; }
 .r-main .r-meta .stale { color: var(--late-text); font-weight: 600; }
 .r-alert { display: flex; align-items: center; gap: 5px; color: var(--ink) !important; font-weight: 600; }
 .r-alert svg { width: 13px; height: 13px; flex: none; color: var(--bad); }
-.r-delay { font-size: 13px; font-weight: 600; color: var(--sig-text); text-align: right; white-space: nowrap; display: grid; justify-items: end; }
+.r-delay { font-size: 13px; font-weight: 600; color: var(--sig-text); text-align: right; display: grid; justify-items: end; max-width: 92px; line-height: 1.25; }
 .r-delay small { font-weight: 400; color: var(--faint); font-size: 12px; }
 .star-mini { display: inline-block; width: 12px; height: 12px; margin-left: 5px; vertical-align: -1px; color: var(--ink); }
 .star-mini svg { display: block; width: 12px; height: 12px; fill: currentColor; }
-.row.compact { padding-block: 6px; grid-template-columns: 9px 50px minmax(0, 1fr) auto; }
+.row.compact { padding-block: 6px; }
 .row.compact .r-num { font-size: 17px; }
 .row.compact .r-main b { font-size: 14px; }
 .more-rows { padding: 6px 20px 14px; }
@@ -790,6 +791,8 @@ button:disabled { cursor: default; opacity: .5; }
 /* train page: your stop, and the enthusiast detail folded away */
 .d-yours { margin: 6px 0 0; padding: 7px 10px 5px; border-left: 3px solid var(--sig); background: var(--paper-2); font-size: 14px; }
 .d-yours b { font-weight: 700; }
+.d-here { margin: 0 0 10px; }
+.stop.here { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--ink); }
 .d-more { border-top: 1px solid var(--rule); padding-top: 10px; }
 .d-more > summary { cursor: pointer; font-size: 14px; font-weight: 700; padding: 6px 0; }
 .d-more[open] > summary { margin-bottom: 10px; }
@@ -877,7 +880,6 @@ button:disabled { cursor: default; opacity: .5; }
 .fr-row small { display: block; font-size: 12.5px; color: var(--muted); }
 .fr-row .text-btn { padding: 8px 4px; }
 .d-friends { margin: 0 20px 12px; padding: 8px 12px 6px; border-left: 3px solid var(--ink); background: var(--paper-2); font-size: 13.5px; }
-.acct-welcome { margin-bottom: 14px; }
 
 /* trip planner */
 .plan-card { width: min(560px, 100%); }
@@ -917,7 +919,10 @@ button:disabled { cursor: default; opacity: .5; }
 .ob-card p { margin: 0; color: var(--muted); font-size: 14.5px; }
 .ob-skip { justify-self: center; display: block; margin: 14px auto 0; }
 
-.foot { padding: 10px 20px 12px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--faint); line-height: 1.45; }
+.foot { padding: 8px 20px 10px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--faint); line-height: 1.45; }
+.foot summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.foot details[open] { max-height: 40vh; overflow-y: auto; }
+.foot details[open] summary { margin-bottom: 4px; }
 .foot a { color: var(--muted); }
 
 /* ---------- narrow screens: full-screen map with a draggable three-position sheet */
@@ -1116,7 +1121,7 @@ button:disabled { cursor: default; opacity: .5; }
   .compare tbody th { grid-column: 1 / -1; width: auto; padding-bottom: 0; font-size: 12px; }
 }
 
-/* small or short screens: the welcome card keeps "Not now" in view */
+/* small or short screens: the account prompt keeps "Skip for now" in view */
 @media (max-height: 640px), (max-width: 380px) {
   .onboard { padding: 10px; }
   .ob-card { padding: 16px 16px 0; gap: 10px; max-height: calc(100% - 4px); }
@@ -1215,6 +1220,7 @@ button:disabled { cursor: default; opacity: .5; }
           <h3>Coming up <small id="homeCount"></small></h3>
           <div class="mt-list" id="homeList"></div>
         </div>
+        <div id="homeSaved"></div>
       </section>
 
       <section id="view-passport" role="tabpanel" aria-labelledby="tab-passport" hidden>
@@ -1239,7 +1245,7 @@ button:disabled { cursor: default; opacity: .5; }
           <div class="sum-body">
             <div class="bar" id="bar" aria-hidden="true"></div>
             <div class="keys" id="keys" role="group" aria-label="Filter by delay"></div>
-            <small>Delay at next stop. On time is within 5 min.</small>
+            <small id="sumNote">Delay at next stop. On time is within 5 min.</small>
           </div>
         </details>
         <div class="listbar" id="listbar">
@@ -1326,7 +1332,9 @@ button:disabled { cursor: default; opacity: .5; }
     </div>
 
     <div class="foot" id="foot">
-      Unofficial. Amtrak positions from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak’s Track Your Train map. Commuter rail from each railroad’s public GTFS-Realtime feed: <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink</a>, Caltrain via <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>, LIRR and Metro-North via <a href="https://www.mta.info/developers" target="_blank" rel="noopener">MTA</a>, <a href="https://www3.septa.org/" target="_blank" rel="noopener">SEPTA</a>, <a href="https://www.mbta.com/developers" target="_blank" rel="noopener">MBTA</a>, MARC, VRE, Tri-Rail, South Shore Line, <a href="https://developer.rideuta.com/" target="_blank" rel="noopener">UTA</a> FrontRunner, <a href="https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds" target="_blank" rel="noopener">RTD</a> and Metra. Rail lines: FRA/BTS. Basemap: US Census, Natural Earth. Tiles: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap.
+      <details><summary>Unofficial · Sources &amp; coverage</summary>
+      Amtrak positions from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak’s Track Your Train map. Commuter rail from each railroad’s public GTFS-Realtime feed: <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink</a>, Caltrain via <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>, LIRR and Metro-North via <a href="https://www.mta.info/developers" target="_blank" rel="noopener">MTA</a>, <a href="https://www3.septa.org/" target="_blank" rel="noopener">SEPTA</a>, <a href="https://www.mbta.com/developers" target="_blank" rel="noopener">MBTA</a>, MARC, VRE, Tri-Rail, South Shore Line, <a href="https://developer.rideuta.com/" target="_blank" rel="noopener">UTA</a> FrontRunner, <a href="https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds" target="_blank" rel="noopener">RTD</a> and Metra. Rail lines: FRA/BTS. Basemap: US Census, Natural Earth. Tiles: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap.
+      </details>
     </div>
   </aside>
 
@@ -1379,7 +1387,6 @@ button:disabled { cursor: default; opacity: .5; }
   <div class="ob-card acct-card">
     <button type="button" class="icon-btn acct-x" id="acctClose" aria-label="Close">×</button>
     <section id="acctAuth">
-      <div class="acct-welcome" id="acctWelcome" hidden><span class="logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M11 5v22M21 5v22" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round"/><path d="M7 10h18M7 16h18M7 22h18" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg><span class="wordmark"><span class="trk">Track</span>side</span></span></div>
       <h2 id="acctTitle" tabindex="-1">Sign in</h2>
       <p class="acct-lede" id="acctLede">Your trains and settings follow you to any device.</p>
       <form class="acct-form" id="acctForm" novalidate>
@@ -1394,7 +1401,6 @@ button:disabled { cursor: default; opacity: .5; }
       </form>
       <p class="acct-switch"><span id="acctSwitchText">New to Trackside?</span> <button type="button" class="text-btn" id="acctSwitch">Create an account</button></p>
       <p class="acct-switch" id="acctForgotRow"><button type="button" class="text-btn" id="acctForgot">Forgot your password?</button></p>
-      <button type="button" class="text-btn ob-skip" id="acctLater" hidden>Not now, just show the map</button>
     </section>
     <section id="acctConfirmView" hidden>
       <h2 tabindex="-1">Check your email</h2>
@@ -2026,7 +2032,7 @@ const stationStops = new Map();   // station code -> [{ t, i }]
    Chicago Union and Ogilvie at 360 m. aliasOf maps the code of each extra one to the code kept; aliasNames lists the
    other names a kept station goes by, so a search for "South Station" finds Boston South. */
 const SAME_STATION_KM = 0.32;
-const aliasOf = new Map(), aliasNames = new Map(), aliasRails = new Map();   // rails: the other railroads there, by name
+const aliasOf = new Map(), aliasNames = new Map(), aliasRails = new Map();   // rails: every railroad there, by name
 const canonCode = (code) => aliasOf.get(code) || code;
 const listedStation = (st) => canonCode(st.code) === st.code && stationStops.has(st.code);
 const railOfCode = (code) => (code.includes('-') ? code.split('-')[0] : '');   // intercity codes have no dash
@@ -2059,7 +2065,8 @@ function linkCoStations() {
     const keep = group.slice().sort((x, y) => rank(x) - rank(y))[0];
     for (const st of group) if (st !== keep) aliasOf.set(st.code, keep.code);
     aliasNames.set(keep.code, [...new Set(group.map((st) => st.name).filter((n) => n && n !== keep.name))]);
-    aliasRails.set(keep.code, [...new Set(group.filter((st) => st !== keep && st.label).map((st) => st.label))]);   // commuter stations carry their railroad
+    // commuter stations carry their railroad; Amtrak's are the intercity ones with three-letter codes
+    aliasRails.set(keep.code, group.map((st) => st.label || (st.code.length === 3 && !st.code.includes('-') ? 'Amtrak' : '')).filter(Boolean));
   }
 }
 function buildStationStops() {
@@ -3508,7 +3515,7 @@ function stationTip(s) {
   const n = upcomingAt(s.code).length;
   return `<b>${esc(s.name || s.code)}</b> <span class="t-est">${esc(codeLabel(s.code))}</span>`
     + (s.city ? `<br>${esc(s.city)}${s.state ? ', ' + esc(s.state) : ''}` : '')
-    + `<br>${n ? plural(n, 'train') + ' still to arrive' : 'No more trains'}`;
+    + `<br>${n ? plural(n, 'train') + ' still to arrive' : 'None upcoming in the live feed'}`;
 }
 function closePops() {
   for (const [pop, btn] of [['#settings', '#settingsBtn'], ['#layers', '#layersBtn']]) {
@@ -3538,7 +3545,8 @@ function progHTML(t) {
   </div>`;
 }
 function updateProgressUI(t) {
-  const show = !!(t && t.prog);
+  // the floating card is for phones, where the sheet can hide the train's page; beside the sidebar it only repeated it
+  const has = !!(t && t.prog), show = has && mqMobile.matches;
   const wasHidden = progEl.hidden;
   if (!show) { progEl.hidden = true; }
   else {
@@ -3549,7 +3557,7 @@ function updateProgressUI(t) {
   }
   const box = $('#dProg');
   if (box) {
-    const html = show ? progHTML(t) : '<p class="note">Progress appears once stations load.</p>';
+    const html = has ? progHTML(t) : '<p class="note">Progress appears once stations load.</p>';
     if (box.__h !== html) { box.__h = html; box.innerHTML = html; }
   }
   if (wasHidden !== progEl.hidden) updateScale();
@@ -3838,8 +3846,20 @@ function flyToStation(st) {
   setActiveRegion(null);
   svg.transition().duration(dur(750)).call(zoom.transform, centerOn(st.p, Math.max(T.k, 14)));
 }
-function goBack() {
+/* Each screen opened over a tab (a train, a station) has its own browser-history entry, so the browser's Back (and a
+   phone's back gesture on the website) goes back a screen rather than off the site. histDepth: how many of nav's
+   screens have an entry. The page's own Back goes through history too, so the two never disagree. */
+let histDepth = 0;
+// Entries the page makes carry { depth }; one made by following a #t-/#s- link has none, and the hashchange handler
+// opens that screen (reusing its entry, below), so it isn't a step back.
+try { if (!history.state) history.replaceState({ depth: 0 }, ''); } catch { /* sandboxed */ }
+window.addEventListener('popstate', (e) => {
+  if (!e.state || typeof e.state.depth !== 'number') return;
+  while (nav.length > e.state.depth) goBack(true);
+});
+function goBack(fromHistory = false) {
   if (!nav.length) return;
+  if (!fromHistory && histDepth === nav.length && history.state && history.state.depth === nav.length) { history.back(); return; }   // popstate pops
   const left = nav.pop();
   const hadFocus = sideEl.contains(document.activeElement);
   if (following) setFollow(false);
@@ -3865,7 +3885,13 @@ function showScreen({ reset = false, restore = false } = {}) {
   else if (s.type === 'train') renderDetail();
   else renderBoard();
   const hash = s ? (s.type === 'train' ? '#t-' + encodeURIComponent(s.id) : '#s-' + encodeURIComponent(s.code)) : '';
-  try { history.replaceState(null, '', hash || location.pathname + location.search); } catch { /* sandboxed */ }
+  try {
+    const url = hash || location.pathname + location.search;
+    // a new screen: a new entry, unless a #t-/#s- link just made one for it
+    if (nav.length > histDepth && history.state) history.pushState({ depth: nav.length }, '', url);
+    else history.replaceState({ depth: nav.length }, '', url);
+  } catch { /* sandboxed */ }
+  histDepth = nav.length;
   renderTrains();
   drawRoute();
   markBoardStation();
@@ -4070,19 +4096,29 @@ $('#clearAll').onclick = () => clearFilters();
 
 /* ---------------- explore: summary ---------------- */
 const summaryEl = $('#summary');
-summaryEl.open = store.get('summaryOpen', !mqMobile.matches);
+summaryEl.open = store.get('summaryOpen', false);   // the breakdown is a click away; the trains come first
 summaryEl.addEventListener('toggle', () => store.set('summaryOpen', summaryEl.open));
 function renderSummary() {
   if (!trains.length) return;
-  const run = trains.filter((t) => inScope(t) && !isPre(t));
+  // running: started and not yet at its last stop. Finished trains the feeds still list are counted apart, and the
+  // on-time share is of trains with a current estimate, never counting a missing or old one as on time.
+  const shown = trains.filter((t) => inScope(t) && !isPre(t));
+  const finished = shown.filter((t) => isDone(t) || (t.lastIdx >= 0 && t.nextIdx < 0));
+  const run = shown.filter((t) => !finished.includes(t));
   const counts = { ok: 0, late: 0, bad: 0, none: 0 };
   for (const t of run) counts[t.sig]++;
-  const known = run.length - counts.none;
-  const delays = run.filter((t) => t.delay != null).map((t) => Math.max(0, t.delay)).sort((a, b) => a - b);
+  const rated = run.filter((t) => t.sig !== 'none' && !isStale(t));
+  const onTime = rated.filter((t) => t.sig === 'ok').length;
+  const delays = rated.filter((t) => t.delay != null).map((t) => Math.max(0, t.delay)).sort((a, b) => a - b);
   const med = delays.length ? delays[Math.floor((delays.length - 1) / 2)] : null;
+  const unrated = run.length - rated.length;
+  // one line closed; what the numbers count, open
   $('#sumText').innerHTML = run.length
-    ? `<strong>${run.length} trains running.</strong> ${known ? Math.round((counts.ok / known) * 100) + '% on time, median delay ' + med + ' min.' : ''}`
+    ? `<strong>${plural(run.length, 'train')} running</strong>${rated.length ? ` · ${Math.round((onTime / rated.length) * 100)}% on time` : ''}`
     : 'No trains match these filters.';
+  $('#sumNote').textContent = (rated.length ? `On time: of the ${rated.length} with a current estimate, within 5 min at the next stop. Median delay ${med} min. ` : 'Delay at next stop. On time is within 5 min. ')
+    + (unrated ? `${unrated} with no estimate or an old report aren't counted. ` : '')
+    + (finished.length ? `${finished.length} more finished their run and aren't counted as running.` : '');
   $('#bar').innerHTML = SIG_ORDER.filter((k) => counts[k]).map((k) => `<i class="sig-${k}" style="flex-grow:${counts[k]}"></i>`).join('');
   $('#keys').innerHTML = SIG_ORDER.map((k) => `<button type="button" class="key sig-${k}" data-sig="${k}" aria-pressed="${delayFilter === k}" title="${delayFilter === k ? 'Show all trains' : 'Show only these trains'}"><span class="sw"></span>${SIG_LABEL[k]} <b>${counts[k]}</b></button>`).join('');
 }
@@ -4142,8 +4178,9 @@ function trainRow(t, o = {}) {
   if (o.dist != null) meta.push(fmtMi(o.dist) + ' away');
   meta.push(esc(endCodes(t)));
   if (numCount.get(t.num) > 1 && t.startDay) meta.push('left ' + esc(t.startDay));
-  if (t.speed >= 1) meta.push(Math.round(t.speed) + ' mph');
-  meta.push(isStale(t) ? `<span class="stale">reported ${esc(shortAgo(t.posTime))}</span>` : esc(shortAgo(t.posTime)));
+  if (t.speed >= 1 && !isStale(t)) meta.push(Math.round(t.speed) + ' mph');   // an old report's speed isn't the train's now
+  // an old report reads as where the train last was, not where it is
+  meta.push(isStale(t) ? `<span class="stale">last seen ${esc(shortAgo(t.posTime))}</span>` : esc(shortAgo(t.posTime)));
   const alert = t.sev >= 2 ? `<small class="r-alert">${ICON.warn}${esc(t.notices[0].summary)}</small>` : '';
   const cur = t.id === selectedId ? ' cur' : '';
   if (compact) {
@@ -4354,7 +4391,7 @@ function suggOptHTML(it, s) {
     return `<span class="sg-ico">${ICON.route}</span><span class="sg-main"><b>${hl(r.name, s)}</b><small>${plural(r.ids.length, 'train')} in the feed${r.late ? `, ${r.late} running late` : ''}</small></span><span class="sg-side">Route</span>`;
   }
   const st = it.st;
-  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}${esc(alsoText(st.code))}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
+  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}${esc(railsText(st.code))}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
 }
 function setActiveSugg(i) {
   suggActive = i;
@@ -4493,10 +4530,19 @@ function stationPicker(input, list, onPick, { match = (s) => matchStations(s, 6)
   list.addEventListener('click', (e) => { const o = e.target.closest('.sg-opt'); if (o) pick(+o.dataset.i); });
 }
 
-/* " · also MBTA", for a station shared with other railroads */
-const alsoText = (code) => { const r = aliasRails.get(code) || []; return r.length ? ' · also ' + r.join(', ') : ''; };
+/* " · Amtrak, MBTA": every railroad at a station shared by several, from the stations linked into it and the trains
+   stopping there now (which also names VIA and Brightline). A station of one railroad says nothing: its code does. */
+const RAIL_LEAD = ['Amtrak', 'VIA Rail', 'Brightline'];
+function railsText(code) {
+  if (!aliasRails.has(code)) return '';
+  const rails = new Set(aliasRails.get(code));
+  for (const { t } of stationStops.get(code) || []) rails.add(provName(t.provider));
+  const rank = (r) => { const i = RAIL_LEAD.indexOf(r); return i < 0 ? RAIL_LEAD.length : i; };
+  const list = [...rails].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return list.length > 1 ? ' · ' + list.join(', ') : '';
+}
 function liveStationItem(x, s) {
-  return `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}${esc(alsoText(x.st.code))}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span>`;
+  return `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}${esc(railsText(x.st.code))}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span>`;
 }
 
 /* ---------------- train details ---------------- */
@@ -4551,6 +4597,21 @@ function yourStopHTML(t) {
   const leg = snapOf(t, p);
   return `<p class="d-yours sig-${esc(leg.sig)}">Your stop: <b>${esc(p.to.name)}</b> ${esc(clockZ(leg.arrive, p.to.tz))}, ${esc(fmtDelay(leg.delay).toLowerCase())}</p>`;
 }
+/* Opened from a station's board: that station first, since it's the one the rider asked about. Arrival or departure
+   follows the board they came from. */
+function boardStopHTML(t, code) {
+  const i = t.stops.findIndex((x) => x.code && canonCode(x.code) === canonCode(code));
+  if (i < 0) return '';
+  const s = t.stops[i], done = i <= t.lastIdx, dep = boardTab === 'dep' && i < t.stops.length - 1;
+  const act = done || dep ? s.dep : s.arr, sch = done || dep ? s.schDep : s.schArr, d = diffMin(act, sch);
+  const when = act || sch;
+  if (!when) return '';
+  const verb = done ? (i === t.stops.length - 1 ? 'arrived' : 'left') : dep ? 'departs' : 'arrives';
+  const how = done ? '' : act ? ' estimated' : ' scheduled';
+  const name = (stations.get(canonCode(code)) || {}).name || s.name || s.code;   // the board's name, not this railroad's
+  return `<p class="d-yours d-here sig-${esc(t.sig)}">At your station: <b>${esc(name)}</b> · ${verb} ${esc(clock(when, s.tz))} ${esc(tzAbbr(when, s.tz))}${how}`
+    + `${d != null && !t.cancelled ? ', ' + esc(fmtDelay(d).toLowerCase()) : ''}</p>`;
+}
 let moreOpen = false;   // the train page's "More details", kept open across refreshes once opened
 function renderDetail() {
   const box = $('#detail');
@@ -4571,7 +4632,7 @@ function renderDetail() {
   const complete = t.lastIdx >= 0 && t.nextIdx < 0;
 
   // the passenger summary: next stop, when, how late, how fresh
-  let nextLbl, nextName, etaLine, vsLine;
+  let nextLbl, nextName, etaLine, vsLine, pillText = statusText(t);
   if (pre) {
     const f = t.stops[0];
     nextLbl = 'Departs from';
@@ -4593,6 +4654,14 @@ function renderDetail() {
       ? `${at ? 'Departs' : nx.kind === 'Ar' ? 'Arrives' : 'Departs'} <b>${esc(clock(at ? (next.dep || when) : when, next.tz))}</b> ${esc(tzAbbr(when, next.tz))}<span class="est" title="Amtrak's estimate">estimated</span> <span class="rel">· ${esc(etaRel(ms(at ? (next.dep || when) : when)))}</span>`
       : `No estimate yet <span class="rel">· scheduled ${esc(clock(nx.sch, next.tz))}</span>`;
     vsLine = nx.sch ? 'vs scheduled ' + clock(nx.sch, next.tz) : '';
+    if (at) {
+      // standing at the station: arrival and departure are two events, each with its own delay. The departure is what
+      // matters next, so the pill and "vs scheduled" are about it; the arrival is said separately.
+      const depD = diffMin(next.dep, next.schDep), arrD = diffMin(next.arr, next.schArr);
+      if (next.arr) etaLine += ` <span class="rel">· arrived ${esc(clock(next.arr, next.tz))}${arrD != null ? ', ' + esc(fmtDelay(arrD).toLowerCase()) : ''}</span>`;
+      if (next.schDep) vsLine = 'departure scheduled ' + clock(next.schDep, next.tz);
+      if (depD != null && !t.cancelled) pillText = 'Departs ' + fmtDelay(depD).toLowerCase();
+    }
   }
   const freshTxt = isNaN(t.posTime) ? 'Position report time unknown'
     : `Position reported ${ago(t.posTime).toLowerCase()} (${localClock(t.posTime)})${stale ? '. It may be out of date' : ''}`;
@@ -4624,7 +4693,8 @@ function renderDetail() {
     if (r.done) actCell = `<div class="s-t act sig-${sig(r.d)}" title="Recorded time">${wd ? '<span class="wd">&nbsp;</span>' : ''}${r.act ? esc(clock(r.act, tz)) : '—'}${r.act ? `<span class="dl">${esc(shortDelta(r.d))}</span>` : ''}</div>`;
     else if (r.act) actCell = `<div class="s-t est sig-${sig(r.d)}" title="${stale ? 'Estimate, and the last position report is old' : "Amtrak's estimate"}">${wd ? '<span class="wd">&nbsp;</span>' : ''}<span class="ek">est.</span>${esc(clock(r.act, tz))}<span class="dl">${esc(shortDelta(r.d))}${stale ? ' ?' : ''}</span></div>`;
     else actCell = `<div class="s-t est">${wd ? '<span class="wd">&nbsp;</span>' : ''}<span class="na">No estimate</span></div>`;
-    rows.push(`<li class="stop ${r.done ? 'done' : 'ahead'}${r.isNext ? ' next' : ''}${r.last ? ' last' : ''}">`
+    const here = under && under.type === 'station' && s.code && canonCode(s.code) === canonCode(under.code);   // the board's station
+    rows.push(`<li class="stop ${r.done ? 'done' : 'ahead'}${r.isNext ? ' next' : ''}${r.last ? ' last' : ''}${here ? ' here' : ''}">`
       + `<span class="rail"><i></i></span>`
       + `<div class="s-name">${nameEl}${tags}<small>${esc(codeLabel(s.code))}${tzNote ? `<span class="tz">${esc(tzNote)}</span>` : ''}${s.platform ? ', track ' + esc(s.platform) : ''}</small></div>`
       + `<div class="s-t">${wdCell}<span class="k">${r.kind}</span>${esc(clock(r.sch, tz))}</div>`
@@ -4659,8 +4729,9 @@ function renderDetail() {
       ${banner}
       ${friendsOnHTML(t)}
       <section class="d-sum" aria-label="Status summary">
+        ${under && under.type === 'station' ? boardStopHTML(t, under.code) : ''}
         <div class="d-next"><span class="lbl">${esc(nextLbl || 'Status')}</span><strong>${esc(nextName || '')}</strong>${etaLine ? `<div class="d-eta">${etaLine}</div>` : ''}</div>
-        <div class="d-status"><span class="pill"><span class="sw"></span>${esc(statusText(t))}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
+        <div class="d-status"><span class="pill"><span class="sw"></span>${esc(pillText)}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
         <p class="d-fresh${stale ? ' warn' : ''}"><span class="fdot"></span>${esc(freshTxt)}</p>
         ${yourStopHTML(t)}
       </section>
@@ -4900,7 +4971,7 @@ function renderBoard() {
   if (shown.length) rows = shown.map((e) => boardRow(e, boardTab)).join('');
   else if (!entries.length) rows = emptyState(boardTab === 'arr' ? 'No arrivals in the live feed' : 'No departures in the live feed', "None of the trains currently in the feed stop here. The feed covers trains that are running or about to start, so check back later.");
   else if (boardFilter === 'hour') rows = emptyState(boardTab === 'arr' ? 'Nothing in the next hour' : 'Nothing in the next hour', 'Later trains are under Upcoming.', [['Show upcoming trains', 'board-upcoming', true], ['All scheduled', 'board-all']]);
-  else if (boardFilter === 'upcoming') rows = emptyState('No more trains today', 'All trains have passed.', [['Show all scheduled', 'board-all', true]]);
+  else if (boardFilter === 'upcoming') rows = emptyState('None upcoming in the live feed', 'The trains in the feed have all passed. It lists trains running or about to start, so later ones appear as they get closer. Plan a trip to see the full timetable.', [['Show all in the feed', 'board-all', true]]);
   else rows = emptyState('Nothing here yet', 'No trains have passed yet.', [['Show upcoming trains', 'board-upcoming', true]]);
   box.innerHTML = `
     <div class="detail">
@@ -4912,9 +4983,9 @@ function renderBoard() {
         </div>
       </div>
       <header class="st-head">
-        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}${esc(alsoText(st.code))}</p>
+        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}${esc(railsText(st.code))}</p>
         <h2>${esc(st.name || st.code)}</h2>
-        <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'No more trains'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
+        <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'None upcoming in the live feed'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
       </header>
       <div class="d-actbar"><button type="button" class="btn" id="stCenter">${ICON.map}Show on map</button></div>
       <div class="board-tabs" role="tablist" aria-label="Board">
@@ -5042,8 +5113,8 @@ function stationRow(st, km) {
   const up = upcomingAt(st.code);
   const next = up[0];
   const place = st.city ? st.city + (st.state ? ', ' + st.state : '') : '';
-  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${esc(alsoText(st.code))}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
-    + `<span class="side-v">${up.length ? `<b>${up.length}</b> to come<br>next ${esc(clock(next.time, next.t.stops[next.i].tz))}` : 'No more today'}</span></button>`;
+  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${esc(railsText(st.code))}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
+    + `<span class="side-v">${up.length ? `<b>${up.length}</b> to come<br>next ${esc(clock(next.time, next.t.stops[next.i].tz))}` : 'None upcoming<br>in the feed'}</span></button>`;
 }
 function renderStationsTab() {
   renderNearStations();
@@ -5754,7 +5825,7 @@ function showAcctView(view) {
   // read when it fires, so a caller can switch to sign-up first; the welcome doesn't pop up a phone's keyboard unasked
   setTimeout(() => {
     const first = view === 'profile' && !mqMobile.matches && $$('#promptForm input').find((i) => i.getClientRects().length);
-    (first || $(welcoming && view === 'auth' ? '#acctTitle' : view === 'auth' && acctMode === 'signup' ? '#acctUserIn' : ACCT_VIEWS[view][1])).focus();
+    (first || $(view === 'auth' && acctMode === 'signup' ? '#acctUserIn' : ACCT_VIEWS[view][1])).focus();
   }, 30);
 }
 /* view: auth, forgot, reset, profile or manage. lede: why the dialog opened, when it's for something in particular. */
@@ -5772,24 +5843,8 @@ function openAccount(view, lede) {
 }
 function closeAccount() {
   $('#acct').hidden = true;
-  if (welcoming) {
-    welcoming = false;
-    store.set('welcomed', true);
-    $('#acctWelcome').hidden = $('#acctLater').hidden = true;
-    return;
-  }
   if ($('#acctBtn').getClientRects().length) $('#acctBtn').focus();
 }
-/* The first time someone opens Trackside signed out, it offers an account: trips, friends and sync need one.
-   Everything else works without, so "Not now" is always there. */
-let welcoming = false;
-function openWelcome() {
-  welcoming = true;
-  openAccount('auth', 'Save trips, see friends’ trains, and sync across devices.');
-  setAuthMode('signup');
-  $('#acctWelcome').hidden = $('#acctLater').hidden = false;
-}
-$('#acctLater').onclick = closeAccount;
 $('#acctForgot').onclick = () => {
   const typed = $('#acctEmailIn').value.trim();
   showAcctView('forgot');
@@ -6433,13 +6488,25 @@ function heroHTML(p) {
     + `<div class="hero-bar" role="img" aria-label="${Math.round(done * 100)}% of your journey"><i style="width:${(done * 100).toFixed(1)}%"></i></div>`
     + `<p class="hero-fresh${fresh === 'live' ? '' : ' warn'}">${esc(freshText)}</p>${acts(!snap.cancelled && !!live)}</div>`;
 }
+/* Home's saved trains and stations and recently viewed trains: kept on this device, so they work signed out too. */
+function homeSavedHTML() {
+  const sec = (title, body) => (body ? `<div class="sec"><h3>${title}</h3>${body}</div>` : '');
+  const trainsHTML = favTrains.map((f) => liveFor(f.num).map((t) => trainRow(t)).join('')).join('');
+  const stationsHTML = favStations.map((c) => stations.get(c)).filter(Boolean).map((st) => stationRow(st)).join('');
+  const recent = recentTrains.filter((r) => !isFavTrain(r.num)).map((r) => liveFor(r.num)[0]).filter(Boolean).slice(0, 5);
+  return sec('Your trains', trainsHTML && `<div class="list">${trainsHTML}</div>`)
+    + sec('Your stations', stationsHTML && `<div class="list">${stationsHTML}</div>`)
+    + sec('Recently viewed', recent.length ? `<div class="list">${recent.map((t) => trainRow(t, { compact: true })).join('')}</div>` : '');
+}
 function renderHome() {
   const hero = $('#homeHero'), more = $('#homeMore');
+  $('#homeSaved').innerHTML = homeSavedHTML();
   if (!session) {
     more.hidden = true;
-    hero.innerHTML = '<div class="hero hero-empty"><div class="hero-title">Your trips, at a glance</div>'
-      + '<p class="hero-status">Save the trains you take and see their status here.</p>'
-      + '<div class="hero-acts"><button type="button" class="btn primary" data-hero="signin">Sign in</button><button type="button" class="btn" data-hero="explore">Explore live trains</button></div></div>';
+    // signed out, Home is still useful: a way in, and what this device has saved; an account adds trips and sync
+    hero.innerHTML = '<div class="hero hero-empty"><div class="hero-title">Find your train</div>'
+      + '<p class="hero-status">Search a train number, route or station above, or browse what’s running. Star trains and stations to keep them here on this device; sign in to sync them and save trips.</p>'
+      + '<div class="hero-acts"><button type="button" class="btn primary" data-hero="explore">Explore live trains</button><button type="button" class="btn" data-hero="signin">Sign in</button></div></div>';
     return;
   }
   const p = heroTrip();
@@ -7137,9 +7204,10 @@ function updateStatusText() {
   } else if (!lastOk) {
     txt.textContent = 'Loading live trains';
   } else if (loading) {
-    txt.textContent = 'Live. Updating now';
+    txt.textContent = 'Refreshing now';
   } else {
-    txt.textContent = `Live. Updated ${hm(lastOk)}, next in ${secs} s`;
+    // when the data was fetched; each train's own report age is shown with it, since a train can be hours old
+    txt.textContent = `Data refreshed ${hm(lastOk)}, next in ${secs} s`;
   }
   updateMapLive(el.classList.contains('error'), hm);
 }
@@ -7151,7 +7219,11 @@ function updateMapLive(error, hm) {
   if (error) { kind = 'error'; txt = 'Offline · retry'; full = lastOk ? `Offline. Last update ${hm(lastOk)}.` : "Can't reach live data."; }
   else if (!lastOk) { kind = 'loading'; txt = 'Loading'; full = 'Loading live trains.'; }
   else if (age > 3 * REFRESH_S * 1000) { kind = 'stale'; txt = `Stale · ${Math.round(age / 60000)} min old`; full = `Positions are ${Math.round(age / 60000)} minutes old.`; }
-  else { kind = 'ok'; txt = `Live · ${hm(lastOk)}`; full = `Live. ${plural(trains.filter(baseVisible).length, 'train')} on the map, updated ${hm(lastOk)}.`; }
+  else {
+    const onMap = trains.filter(baseVisible), old = onMap.filter(isStale).length;
+    kind = 'ok'; txt = `Refreshed · ${hm(lastOk)}`;
+    full = `Data refreshed ${hm(lastOk)}. ${plural(onMap.length, 'train')} on the map${old ? `; ${old} haven't reported a position in ${STALE_MIN}+ minutes and show where they last were` : ''}.`;
+  }
   const key = kind + txt + full;
   if (b.__key === key) return;
   b.__key = key;
@@ -7244,7 +7316,8 @@ if (store.get('locate', false)) {
 }
 booting = false;
 renderAccount();
-if (ACCOUNTS_API && !session && !store.get('welcomed', false) && !pendingHash && !resetToken) openWelcome();
+// No account prompt on arrival: the map, search and boards work without one, and the features that need one
+// (trips, friends, sync) offer to sign in when used.
 if (session) { pullSync(); loadTrips(); loadFriends({ askProfile: true }); }
 if (resetToken) openAccount('reset');
 refresh();

@@ -2030,7 +2030,7 @@ const stationStops = new Map();   // station code -> [{ t, i }]
    Chicago Union and Ogilvie at 360 m. aliasOf maps the code of each extra one to the code kept; aliasNames lists the
    other names a kept station goes by, so a search for "South Station" finds Boston South. */
 const SAME_STATION_KM = 0.32;
-const aliasOf = new Map(), aliasNames = new Map(), aliasRails = new Map();   // rails: the other railroads there, by name
+const aliasOf = new Map(), aliasNames = new Map(), aliasRails = new Map();   // rails: every railroad there, by name
 const canonCode = (code) => aliasOf.get(code) || code;
 const listedStation = (st) => canonCode(st.code) === st.code && stationStops.has(st.code);
 const railOfCode = (code) => (code.includes('-') ? code.split('-')[0] : '');   // intercity codes have no dash
@@ -2063,7 +2063,8 @@ function linkCoStations() {
     const keep = group.slice().sort((x, y) => rank(x) - rank(y))[0];
     for (const st of group) if (st !== keep) aliasOf.set(st.code, keep.code);
     aliasNames.set(keep.code, [...new Set(group.map((st) => st.name).filter((n) => n && n !== keep.name))]);
-    aliasRails.set(keep.code, [...new Set(group.filter((st) => st !== keep && st.label).map((st) => st.label))]);   // commuter stations carry their railroad
+    // commuter stations carry their railroad; Amtrak's are the intercity ones with three-letter codes
+    aliasRails.set(keep.code, group.map((st) => st.label || (st.code.length === 3 && !st.code.includes('-') ? 'Amtrak' : '')).filter(Boolean));
   }
 }
 function buildStationStops() {
@@ -4388,7 +4389,7 @@ function suggOptHTML(it, s) {
     return `<span class="sg-ico">${ICON.route}</span><span class="sg-main"><b>${hl(r.name, s)}</b><small>${plural(r.ids.length, 'train')} in the feed${r.late ? `, ${r.late} running late` : ''}</small></span><span class="sg-side">Route</span>`;
   }
   const st = it.st;
-  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}${esc(alsoText(st.code))}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
+  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}${esc(railsText(st.code))}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
 }
 function setActiveSugg(i) {
   suggActive = i;
@@ -4527,10 +4528,19 @@ function stationPicker(input, list, onPick, { match = (s) => matchStations(s, 6)
   list.addEventListener('click', (e) => { const o = e.target.closest('.sg-opt'); if (o) pick(+o.dataset.i); });
 }
 
-/* " · also MBTA", for a station shared with other railroads */
-const alsoText = (code) => { const r = aliasRails.get(code) || []; return r.length ? ' · also ' + r.join(', ') : ''; };
+/* " · Amtrak, MBTA": every railroad at a station shared by several, from the stations linked into it and the trains
+   stopping there now (which also names VIA and Brightline). A station of one railroad says nothing: its code does. */
+const RAIL_LEAD = ['Amtrak', 'VIA Rail', 'Brightline'];
+function railsText(code) {
+  if (!aliasRails.has(code)) return '';
+  const rails = new Set(aliasRails.get(code));
+  for (const { t } of stationStops.get(code) || []) rails.add(provName(t.provider));
+  const rank = (r) => { const i = RAIL_LEAD.indexOf(r); return i < 0 ? RAIL_LEAD.length : i; };
+  const list = [...rails].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return list.length > 1 ? ' · ' + list.join(', ') : '';
+}
 function liveStationItem(x, s) {
-  return `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}${esc(alsoText(x.st.code))}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span>`;
+  return `<span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}${esc(railsText(x.st.code))}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span>`;
 }
 
 /* ---------------- train details ---------------- */
@@ -4971,7 +4981,7 @@ function renderBoard() {
         </div>
       </div>
       <header class="st-head">
-        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}${esc(alsoText(st.code))}</p>
+        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}${esc(railsText(st.code))}</p>
         <h2>${esc(st.name || st.code)}</h2>
         <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'None upcoming in the live feed'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
       </header>
@@ -5101,7 +5111,7 @@ function stationRow(st, km) {
   const up = upcomingAt(st.code);
   const next = up[0];
   const place = st.city ? st.city + (st.state ? ', ' + st.state : '') : '';
-  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${esc(alsoText(st.code))}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
+  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${esc(railsText(st.code))}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
     + `<span class="side-v">${up.length ? `<b>${up.length}</b> to come<br>next ${esc(clock(next.time, next.t.stops[next.i].tz))}` : 'None upcoming<br>in the feed'}</span></button>`;
 }
 function renderStationsTab() {
