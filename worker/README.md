@@ -89,8 +89,33 @@ npm run schedules && npm run deploy
 ```
 
 A train the bundle doesn't know is matched by its train number instead, then by the run whose times fit. If
-nothing fits, a train from a rail-only feed still appears at its reported position, without its stops; one from
-a shared feed (MBTA, FrontRunner, RTD) is left out, since it may be a bus.
+nothing fits, a train from a rail-only feed still appears at its reported position, without its stops, as long as
+that position is fresh (see [Dead trains](#dead-trains)); one from a shared feed (MBTA, FrontRunner, RTD) is left
+out, since it may be a bus.
+
+## Dead trains
+
+Feeds don't always drop a train that has stopped running. SEPTA's has served parked consists, named by their car
+numbers ("2406,2556,2502,…") and matching no timetabled trip, for a day and a half after their last report, and
+Amtraker has kept a train "active" eighteen hours after its last. So a train is shown only while it's plausibly
+running, whatever its feed says. These are rules, not settings:
+
+| Rule | Worker (`src/trains.js`) | Site (`index.html`) |
+|---|---|---|
+| Nothing heard (no position, no prediction) for 2 hours: left out | `GONE_MS` | `GONE_MIN`, for every source, Amtraker's too |
+| Only a position (no timetable match), and it's over 20 minutes old: left out | `GHOST_MS` | ghost: no estimate ahead and no report for `STALE_MIN` |
+| No estimate ahead, and parked at one spot for 30 minutes: hidden | | ghost: `GHOST_MIN` |
+| A report's time is the vehicle's or the prediction's, else the feed's; never the time of the request | `buildTrains` | |
+| A feed whose newest report is over 2 hours old has stopped updating: its status says so | `feedSilence` | |
+
+The status is in each `/v1/trains` response's `X-Feed-Status` header, one entry per railroad:
+
+```bash
+curl -sI https://trackside-feeds.trackside-feeds.workers.dev/v1/trains -H 'Origin: https://sm3625.github.io' | grep -i x-feed-status
+```
+
+`ok`, or `stale: …` with the reason (an upstream error, or `the feed hasn't updated in 34 h`), or `error: …`.
+`npm test` here and the browser tests in `../e2e` (`dead-trains.spec.mjs`) check each rule against the cases above.
 
 ## Limits
 

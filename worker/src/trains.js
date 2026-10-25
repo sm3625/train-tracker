@@ -10,6 +10,30 @@ const MAX_MPH = 79;   // commuter trains in the US top out around here; caps the
    early. Such a train is shown at its position with no times, rather than with made-up ones; no commuter train here
    is that late for real. */
 const MATCH_MS = 3 * 3600000;
+/* Dead trains. A feed doesn't always drop a train that has stopped running: SEPTA's has served parked consists, named
+   by their car numbers ("2406,2556,2502,…") and with no trip the timetable knows, for a day and a half after their
+   last report. So a train is served only while it's plausibly running, whatever the feed says:
+   - GONE_MS: nothing heard about it (no position, no prediction) for this long, and it's left out. A running train
+     reports every few minutes.
+   - GHOST_MS: a train with nothing but a position (it matched no timetabled run) is served only while that position
+     is this fresh; an old dot with no times says nothing.
+   A report's time is the vehicle's or the prediction's own, else the feed's: never the time of this request, which
+   would make any old report look current. The site applies the same rules to every source (GONE_MIN in
+   index.html). */
+export const GONE_MS = 2 * 3600000;
+export const GHOST_MS = 20 * 60000;
+
+/* How long since the newest dated report in a railroad's feeds (ms), or null if none is dated. Past GONE_MS the feed
+   itself has stopped updating, and every train in it is dropped as gone, so the feed's status says so rather than
+   "ok" (SEPTA's sat on one snapshot for a day and a half while answering every request). */
+export function feedSilence(feeds, now) {
+  let newest = 0;
+  for (const f of feeds) {
+    for (const e of f.entities) newest = Math.max(newest, (e.vehicle && e.vehicle.timestamp) || 0, (e.tripUpdate && e.tripUpdate.timestamp) || 0);
+  }
+  if (!newest) for (const f of feeds) newest = Math.max(newest, (f.header && f.header.timestamp) || 0);
+  return newest ? now - newest * 1000 : null;
+}
 
 /* ---------------- time helpers, per time zone ---------------- */
 const clocks = new Map();
@@ -146,11 +170,13 @@ function candidates(sched, key, desc, mixed) {
 export function buildTrains(agency, sched, feeds, now) {
   const c = clock(sched.tz), tz = sched.tz;
   const keyOf = (e, trip) => (agency.joinBy === 'entity' ? e.id : trip && trip.tripId);
-  const updates = new Map(), vehicles = new Map();
+  const updates = new Map(), vehicles = new Map(), reported = new Map();   // reported: key -> { veh, tu } in ms
   for (const f of feeds) {
+    const feedAt = (f.header || {}).timestamp;
+    const note = (k, kind, ts) => { const r = reported.get(k) || {}; r[kind] = (ts || feedAt || 0) * 1000 || null; reported.set(k, r); };
     for (const e of f.entities) {
-      if (e.tripUpdate) { const k = keyOf(e, e.tripUpdate.trip); if (k) updates.set(k, e.tripUpdate); }
-      if (e.vehicle) { const k = keyOf(e, e.vehicle.trip); if (k) vehicles.set(k, e.vehicle); }
+      if (e.tripUpdate) { const k = keyOf(e, e.tripUpdate.trip); if (k) { updates.set(k, e.tripUpdate); note(k, 'tu', e.tripUpdate.timestamp); } }
+      if (e.vehicle) { const k = keyOf(e, e.vehicle.trip); if (k) { vehicles.set(k, e.vehicle); note(k, 'veh', e.vehicle.timestamp); } }
     }
   }
 
@@ -163,6 +189,10 @@ export function buildTrains(agency, sched, feeds, now) {
     let fit = resolve(cands.runs, sched, tu, desc, c, now);
     if (fit && fit.score > MATCH_MS) fit = null;   // the same number or trip id, a different train
     if (!fit && (agency.mixed || !(veh && veh.position))) continue;   // a bus, or nothing to show
+    const { veh: posTs = null, tu: tuTs = null } = reported.get(key) || {};
+    const heard = Math.max(posTs || 0, tuTs || 0);
+    if (heard && now - heard > GONE_MS) continue;   // silent for hours: the feed forgot it
+    if (!fit && !(posTs && now - posTs <= GHOST_MS)) continue;   // only a position, and an old one
     // A timetabled train with no position that isn't due for over an hour, or finished two hours ago: nothing
     // useful to show. Checked before the stops are built, since feeds like Metro-North's list the whole day.
     if (fit && !(veh && veh.position)) {
@@ -221,7 +251,6 @@ export function buildTrains(agency, sched, feeds, now) {
     if (notStarted && !(veh && veh.position) && Date.parse(first.dep || first.schDep) - now > 3600000) continue;   // see above
 
     const pos = veh && veh.position && veh.position.lat ? veh.position : null;
-    const posTs = veh && veh.timestamp ? veh.timestamp * 1000 : null;
     // Many feeds send no speed. Estimate it from the distance to the next stop and the predicted arrival there,
     // so the train keeps moving on the map between updates (the site never runs it past that stop).
     let mph = pos && pos.speed != null && pos.speed > 0 ? pos.speed * MPS_TO_MPH : null;
@@ -250,7 +279,7 @@ export function buildTrains(agency, sched, feeds, now) {
       trainState: cancelled ? 'Cancelled' : allDeparted ? 'Completed' : notStarted ? 'Predeparture' : 'Active',
       origCode: first ? first.code : '', origName: first ? first.name : '', originTZ: tz,
       destCode: lastStop ? lastStop.code : '', destName: (run && run[1]) || (lastStop ? lastStop.name : ''), destTZ: tz,
-      lastValTS: c.iso(posTs ?? (tu && tu.timestamp ? tu.timestamp * 1000 : now)),
+      lastValTS: c.iso(posTs ?? tuTs),
       stations,
       alerts: [],
     });

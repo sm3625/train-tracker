@@ -12,7 +12,7 @@ import { decodeFeed } from './gtfsrt.js';
 import { corsHeaders, json } from './http.js';
 import { isAccountsPath, handleAccounts } from './accounts.js';
 import { AGENCIES, SECRET_KEYS } from './agencies.js';
-import { buildTrains, railFilter } from './trains.js';
+import { buildTrains, railFilter, feedSilence, GONE_MS } from './trains.js';
 import SCHEDULES from './schedules.json' with { type: 'json' };
 
 const KEEP_STALE = 30 * 60;   // after an upstream error, keep serving the last good copy this long (seconds)
@@ -116,9 +116,13 @@ async function railroad(a, env, ctx, now, mayRebuild, budget) {
   try {
     const got = await Promise.all(sources.map(([kind, f]) => feed(a.provider + ' ' + kind, f, a.auth, env, budget)));
     const keep = a.mixed ? railFilter(sched) : undefined;
-    const trains = buildTrains(a, sched, got.map((g) => decodeFeed(g.bytes, keep)), now);
+    const feeds = got.map((g) => decodeFeed(g.bytes, keep));
+    const trains = buildTrains(a, sched, feeds, now);
     const err = got.find((g) => g.error);
-    const result = { trains, status: err ? 'stale: ' + scrub(err.error, env) : 'ok' };
+    const quiet = feedSilence(feeds, now);   // a feed that answers but has stopped updating (see GONE_MS)
+    const status = err ? 'stale: ' + scrub(err.error, env)
+      : quiet > GONE_MS ? `stale: the feed hasn't updated in ${Math.round(quiet / 3600000)} h; its trains are left out` : 'ok';
+    const result = { trains, status };
     sharedPut('built ' + a.id, JSON.stringify(result), ctx, budget);
     return result;
   } catch (err) {

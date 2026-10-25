@@ -23,7 +23,7 @@ Xcode and Android Studio don't pick up the page on their own.
 | `npm run build` | Builds `www/` from `../index.html` and `../data/` |
 | `npm run sync` | Builds, then copies `www/` and the plugins into `ios/` and `android/` |
 | `npm run ios` / `npm run android` | Syncs one platform and opens it in Xcode or Android Studio |
-| `npm run icons` | Regenerates every icon and launch screen from `assets/logo.svg` |
+| `npm run icons` | Regenerates every icon and launch screen from the SVGs in `assets/` (see `icons.mjs`) |
 
 ## How the app differs from the website
 
@@ -40,6 +40,13 @@ The page checks `IN_APP` (true only inside the app) for the few things that work
   is only a fallback for when the site can't be reached. (Amtrak's covers about a week, so a built-in copy goes stale
   fast.)
 - **Android's back button** steps back through dialogs and screens, as Escape does on the web, then leaves the app.
+- **The status bar's** icons follow the theme picked in Settings (Light, Dark or Auto) rather than the phone's, so they
+  stay readable over the map.
+
+On Android, the app and the site in an Android browser both get a few touches of Material in place of Apple's
+conventions (`:root[data-os="android"]` in `index.html`): solid surfaces instead of blurred ones, Roboto without the
+tighter tracking SF wants, 28 dp sheet and dialog corners, Material switches and a back arrow. The Android icon is
+adaptive, in two layers, and has a one-colour layer for Android 13's themed icons; iOS has a dark-mode icon.
 
 ## The feeds worker must allow the app
 

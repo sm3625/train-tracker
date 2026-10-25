@@ -2,7 +2,7 @@
    and the decoder itself. Feeds here are built by hand, so nothing touches the network. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTrains, railFilter, clock } from '../src/trains.js';
+import { buildTrains, railFilter, clock, feedSilence } from '../src/trains.js';
 import { decodeFeed, STATUS } from '../src/gtfsrt.js';
 
 const TZ = 'America/New_York';
@@ -98,6 +98,42 @@ test('mixed feeds keep only trains; pure rail feeds keep an unknown train that h
   assert.equal(t.lat, 40.05);
 });
 
+/* ---------------- dead trains (GONE_MS, GHOST_MS) ---------------- */
+test('a parked consist the feed still lists a day and a half on is left out (SEPTA); the same vehicle reporting now is kept', () => {
+  // SEPTA served these: no trip the timetable knows, named by the cars, last reported 34 hours earlier
+  const consist = (ts) => ({ id: 'c1', vehicle: { trip: { tripId: 'CHW-yesterday', routeId: 'R' }, vehicle: { label: '400,432,431,287' }, position: { lat: 40.05, lon: -74 }, timestamp: ts / 1000 } });
+  const now = at(20 * H);
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [feed(consist(now - 34 * 3600000))], now), []);
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [feed(consist(now - 25 * 60000))], now), []);   // a position alone goes stale in 20 min
+  assert.equal(buildTrains(AGENCY, SCHED, [feed(consist(now - 60000))], now).length, 1);
+});
+
+test('a timetabled train heard from in neither position nor prediction for two hours is left out', () => {
+  const now = at(8.2 * H);
+  const quiet = (ago) => vehicle('v1', 't-101', { timestamp: (now - ago) / 1000 });
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [feed(quiet(3 * 3600000))], now), []);
+  const [t] = buildTrains(AGENCY, SCHED, [feed(quiet(50 * 60000))], now);   // stale, not gone: kept, its age shown
+  assert.equal(t.lastValTS, c.iso(now - 50 * 60000));
+});
+
+test('fresh predictions keep a train whose position has gone quiet, and its report time stays the position\'s', () => {
+  const now = at(8.2 * H);
+  const veh = vehicle('v1', 't-101', { timestamp: (now - 3 * 3600000) / 1000 });
+  const tu = { id: 'u', tripUpdate: { trip: { tripId: 't-101', startDate: day }, timestamp: (now - 60000) / 1000, stops: [{ stopId: 'b', arrival: { time: at(8.5 * H + 120) / 1000 } }] } };
+  const [t] = buildTrains(AGENCY, SCHED, [feed(tu, veh)], now);
+  assert.equal(t.lastValTS, c.iso(now - 3 * 3600000));   // the site shows the position as old, not as current
+});
+
+test('a report with no time of its own takes the feed\'s, never the request\'s', () => {
+  const now = at(20 * H);
+  const bare = { id: 'b1', vehicle: { trip: { tripId: 'unknown-7' }, position: { lat: 40.05, lon: -74 } } };
+  const withHeader = (ts) => ({ header: { timestamp: ts / 1000 }, entities: [bare] });
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [withHeader(now - 3600000)], now), []);   // the feed itself is an hour old
+  const [t] = buildTrains(AGENCY, SCHED, [withHeader(now - 30000)], now);
+  assert.equal(t.lastValTS, c.iso(now - 30000));
+  assert.deepEqual(buildTrains(AGENCY, SCHED, [feed(bare)], now), []);   // no time anywhere: a bare dot nobody vouches for
+});
+
 test('timetabled trains far off, with no position, are left out', () => {
   const tu = { id: 'u', tripUpdate: { trip: { tripId: 't-102', startDate: day }, stops: [] } };
   assert.equal(buildTrains(AGENCY, SCHED, [feed(tu)], at(7 * H)).length, 0);
@@ -147,4 +183,13 @@ test('decoder: a filter skips entities that are not trains', () => {
 
 test('decoder: refuses something that is not a feed', () => {
   assert.throws(() => decodeFeed(new TextEncoder().encode('<html>Service unavailable</html>'), () => false));
+});
+
+test('a feed\'s silence is the age of its newest dated report, else of its header; none dated, none known', () => {
+  const now = at(20 * H);
+  const v = (ago) => ({ id: 'v', vehicle: { trip: { tripId: 'x' }, timestamp: (now - ago) / 1000 } });
+  // SEPTA's frozen snapshot: every report a day and a half old, though the header is today's
+  assert.equal(feedSilence([{ header: { timestamp: now / 1000 }, entities: [v(36 * 3600000), v(34 * 3600000)] }], now), 34 * 3600000);
+  assert.equal(feedSilence([{ header: { timestamp: (now - 60000) / 1000 }, entities: [{ id: 'u', tripUpdate: { trip: {} } }] }], now), 60000);
+  assert.equal(feedSilence([feed()], now), null);
 });
