@@ -82,7 +82,11 @@ A copy of `index.html` opened from disk or `localhost` uses this local server au
 The live feeds carry only trip and stop IDs. `src/schedules.json` maps them to line names, stations and
 scheduled times. It's built from each railroad's static GTFS (rail routes only, each distinct run once) and holds
 only public timetable data: about 2.8 MB, 600 KB compressed, bundled into the worker. Railroads publish new
-timetables every few weeks to months, so rebuild it now and then, then redeploy:
+timetables every few weeks to months, and a train the bundle doesn't know is shown grey, with no stops or times. So
+the weekly workflow (`../.github/workflows/timetables.yml`, Mondays) rebuilds it, runs the tests, commits it if it
+changed and redeploys the worker. It needs the repository secrets listed at the top of that file, including
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for the deploy. To do it by hand (after a railroad's schedule
+change, say), run it from the Actions tab, or locally:
 
 ```bash
 npm run schedules && npm run deploy
