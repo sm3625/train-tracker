@@ -486,3 +486,24 @@ test('the feeds are rate limited per address', async () => {
   assert.equal(blocked.headers.get('Retry-After'), '60');
   assert.equal((await ask('2.2.2.2')).status, 200);   // someone else isn't affected
 });
+
+test('feedback, signed in or not', async () => {
+  const { env, call } = server();
+  assert.equal((await call('POST', '/v1/feedback', { body: { kind: 'idea', message: '  More maps  ', page: 'web' } })).status, 201);
+  const { body: { token } } = await call('POST', '/v1/auth/signup', { body: creds });
+  assert.equal((await call('POST', '/v1/feedback', { token, body: { kind: 'problem', message: 'Late train', contact: 'Me@Example.com' } })).status, 201);
+  assert.equal((await call('POST', '/v1/feedback', { token: 'stale', body: { kind: 'nonsense', message: 'Hi' } })).status, 201);
+  const [stale, mine, anon] = await env.ACCOUNTS_STORE.listFeedback(10);
+  assert.equal(anon.message, 'More maps');
+  assert.equal(anon.userId, null);
+  assert.equal(anon.page, 'web');
+  assert.ok(mine.userId);
+  assert.equal(mine.contact, 'me@example.com');
+  assert.equal(stale.kind, 'other');
+  assert.equal(stale.userId, null);
+  assert.equal((await call('POST', '/v1/feedback', { body: { message: '   ' } })).status, 400);
+  assert.equal((await call('POST', '/v1/feedback', { body: { message: 'x', contact: 'nope' } })).status, 400);
+  assert.equal((await call('POST', '/v1/feedback', { body: { message: 'x'.repeat(4001) } })).status, 400);
+  for (let i = 0; i < 7; i++) await call('POST', '/v1/feedback', { body: { message: 'again' } });
+  assert.equal((await call('POST', '/v1/feedback', { body: { message: 'one too many' } })).status, 429);
+});

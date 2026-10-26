@@ -1,0 +1,5 @@
+# Vercel serves the site only: the page and its timetables. Everything else (the worker, the apps, tests, and .env
+# with its keys) stays out of the upload.
+/*
+!/index.html
+!/data

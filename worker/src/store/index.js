@@ -14,7 +14,7 @@
      findByPhoneHashes([hash]) -> [{ id, username, phoneHash }]   accounts with a username whose number matches
      setPasswordHash(id, passwordHash)
      deleteUser(id)                                           also deletes that user's sessions, data, trips, reset links,
-                                                              username, phone and friendships
+                                                              username, phone, friendships and feedback
 
      createSession({ tokenHash, userId, createdAt, expiresAt })
      getSession(tokenHash) -> { tokenHash, userId, createdAt, expiresAt } | null
@@ -47,6 +47,9 @@
      getResetToken(tokenHash) -> { tokenHash, userId, createdAt, expiresAt } | null
      deleteResetTokensForUser(userId)                         a link works once: using one cancels them all
      deleteResetTokensBefore(time)
+
+     addFeedback({ id, userId, kind, message, contact, page, createdAt })   userId, contact and page may be null
+     listFeedback(limit) -> [feedback]                        newest first
 
      countAttempts(bucket, since) -> number                   rate limiting: sign-in and sign-up attempts
      addAttempt(bucket, at)

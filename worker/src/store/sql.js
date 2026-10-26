@@ -82,6 +82,7 @@ export class SqlStore {
       { sql: 'DELETE FROM friendships WHERE requester_id = ? OR addressee_id = ?', params: [id, id] },
       { sql: 'DELETE FROM profiles WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM phones WHERE user_id = ?', params: [id] },
+      { sql: 'DELETE FROM feedback WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM users WHERE id = ?', params: [id] },
     ]);
   }
@@ -202,6 +203,15 @@ export class SqlStore {
   }
   async deleteResetTokensBefore(time) {
     await this.db.run('DELETE FROM reset_tokens WHERE expires_at < ?', [time]);
+  }
+
+  async addFeedback(f) {
+    await this.db.run('INSERT INTO feedback (id, user_id, kind, message, contact, page, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [f.id, f.userId || null, f.kind, f.message, f.contact || null, f.page || null, f.createdAt]);
+  }
+  async listFeedback(limit) {
+    const rows = await this.db.all('SELECT * FROM feedback ORDER BY created_at DESC LIMIT ?', [limit]);
+    return rows.map((r) => ({ id: r.id, userId: r.user_id || null, kind: r.kind, message: r.message, contact: r.contact || null, page: r.page || null, createdAt: Number(r.created_at) }));
   }
 
   async countAttempts(bucket, since) {

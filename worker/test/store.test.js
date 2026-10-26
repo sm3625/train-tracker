@@ -240,6 +240,19 @@ for (const [name, make] of Object.entries(ADAPTERS)) {
     assert.equal(await s.getResetToken('r2'), null);
   });
 
+  test(`${name}: feedback`, async () => {
+    const s = make();
+    await s.createUser(user(1));
+    await s.addFeedback({ id: 'f1', userId: 'u1', kind: 'idea', message: 'More maps', contact: 'a@example.com', page: 'web', createdAt: 1 });
+    await s.addFeedback({ id: 'f2', userId: null, kind: 'problem', message: 'Late', createdAt: 2 });
+    assert.deepEqual(await s.listFeedback(10), [
+      { id: 'f2', userId: null, kind: 'problem', message: 'Late', contact: null, page: null, createdAt: 2 },
+      { id: 'f1', userId: 'u1', kind: 'idea', message: 'More maps', contact: 'a@example.com', page: 'web', createdAt: 1 },
+    ]);
+    await s.deleteUser('u1');
+    assert.deepEqual((await s.listFeedback(10)).map((f) => f.id), ['f2']);
+  });
+
   test(`${name}: attempts`, async () => {
     const s = make();
     for (const at of [10, 20, 30]) await s.addAttempt('login-email:p1@example.com', at);

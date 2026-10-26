@@ -455,6 +455,9 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 @media (hover: hover) { .btn:hover { background: var(--fill-2); } }
 .btn[aria-pressed="true"] { background: var(--tint-soft); color: var(--tint); }
 .btn.primary { background: var(--tint-fill); color: var(--on-tint); }
+/* tinted: always on show but quieter than the screen's one filled button */
+.btn.tinted { background: var(--tint-soft); color: var(--tint); }
+@media (hover: hover) { .btn.tinted:hover { background: color-mix(in srgb, var(--tint-soft) 100%, var(--tint) 8%); } }
 @media (hover: hover) { .btn.primary:hover { background: color-mix(in srgb, var(--tint-fill) 88%, #000); } }
 .btn svg { width: 15px; height: 15px; flex: none; }
 .error-box { margin: 14px var(--gut); padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--bad) 10%, transparent); font-size: 13.5px; }
@@ -774,7 +777,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 .train { cursor: pointer; outline: none; }
 .train .hit { fill: transparent; }
 .train .ring { fill: none; stroke: var(--ink); stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0; transition: opacity .2s ease; }
-.train.selected .ring { opacity: 1; }
+/* the selected train is drawn larger and labelled; the ring is only for keyboard focus */
 .train:focus-visible .ring { opacity: 1; stroke: var(--tint); stroke-width: 3; }
 .train.pre .spr { opacity: .5; }
 .train.stale .spr { opacity: .55; }
@@ -796,10 +799,9 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 
 .me { display: none; pointer-events: none; }
 .me.on { display: block; }
-.me .acc { fill: color-mix(in srgb, var(--me) 13%, transparent); stroke: color-mix(in srgb, var(--me) 45%, transparent); stroke-width: 1; }
-.me .dot { fill: var(--me); stroke: #ffffff; stroke-width: 2.5; }
-.me .pulse { fill: var(--me); transform-box: fill-box; transform-origin: center; animation: me-pulse 2.6s ease-out infinite; }
-@keyframes me-pulse { from { transform: scale(1); opacity: .45; } to { transform: scale(3.2); opacity: 0; } }
+.me .acc { fill: var(--me); fill-opacity: .1; stroke: none; }
+/* a still dot, as Apple Maps draws it: a pulse that never stops reads as a circle around whatever is nearby */
+.me .dot { fill: var(--me); stroke: #ffffff; stroke-width: 2.5; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3)); }
 #locate[aria-pressed="true"] { color: var(--me); }
 #locate[aria-pressed="true"] .ctr { fill: var(--me); }
 
@@ -955,8 +957,31 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 
 .acct-card .acct-ok { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ok) 12%, transparent); font-size: 13.5px; }
 
-/* trips */
-#mtSec .btn { margin-top: 12px; }
+/* trips: the add button sits at the top of Home and Trips */
+.add-trip-bar { padding: 14px var(--gut) 2px; }
+.add-trip { width: 100%; height: 44px; font-size: 15px; }
+.add-trip:active:not(:disabled) { transform: scale(.98); }   /* a wide button moves less than a small one */
+.add-trip svg { width: 15px; height: 15px; }
+#mtAdd + .intro { padding-top: 10px; }
+
+/* feedback */
+.acct-form textarea {
+  border: 0; border-radius: 12px; background: var(--fill); color: var(--ink); padding: 12px 14px;
+  font: inherit; font-size: 16px; font-weight: 400; line-height: 1.4; width: 100%; resize: none; min-height: 128px; transition: box-shadow .2s ease;
+}
+.fb-label { display: flex; justify-content: space-between; align-items: baseline; }
+.fb-label span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.acct-form textarea::placeholder { color: var(--faint); }
+.acct-form textarea:focus { outline: none; box-shadow: var(--ring); }
+/* a row like the settings above it, set off by a hairline: it opens something rather than changing a setting */
+.fb-row {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 14px; padding: 12px 0 0;
+  border: 0; background: none; box-shadow: inset 0 .5px 0 var(--rule); font-size: 14px; color: var(--ink); text-align: left;
+}
+.fb-row svg { width: 14px; height: 14px; color: var(--faint); }
+.fb-row:active { opacity: .55; transition: opacity .08s; }
+.foot .fb-link { display: block; margin-bottom: 4px; font-size: 12px; color: var(--muted); }
+.acct-card .acct-fb { margin: -12px 0 20px; }
 .mt-list { display: grid; gap: 8px; }
 .mt-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; border-radius: 16px; background: var(--card); overflow: hidden; }
 .mt-card.is-live { box-shadow: inset 0 0 0 1.5px var(--sig); }
@@ -1351,7 +1376,6 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
   .playbar { width: calc(100% - 70px); left: 8px; transform: none; }
 }
 
-@media (prefers-reduced-motion: reduce) { .me .pulse { animation: none; opacity: 0; } }
 
 /* ---------- Android (the app, and the site in an Android browser): Material's conventions where Apple's would feel
    foreign. Surfaces are solid and lifted by shadow rather than translucent: Material doesn't blur, and a blurred sheet
@@ -1437,6 +1461,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
           <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
         </div></fieldset>
         <label class="check"><input type="checkbox" id="simplifyToggle"> Simplify display</label>
+        <button type="button" class="fb-row" id="fbSettings" hidden>Send feedback<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
       </div>
     </div>
 
@@ -1444,6 +1469,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
       <div id="errorBox"></div>
 
       <section id="view-home" role="tabpanel" aria-labelledby="tab-home" hidden>
+        <div class="add-trip-bar" id="homeAdd" hidden><button type="button" class="btn tinted add-trip" data-add-trip><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>Add a trip</button></div>
         <div class="sec"><div id="homeHero"></div></div>
         <div class="sec" id="homeMore" hidden>
           <h3>Coming up <small id="homeCount"></small></h3>
@@ -1501,11 +1527,11 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
       </section>
 
       <section id="view-track" role="tabpanel" aria-labelledby="tab-track" hidden>
+        <div class="add-trip-bar" id="mtAdd"><button type="button" class="btn tinted add-trip" id="planOpen"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>Add a trip</button></div>
         <p class="intro"><b>Search by number, route or station</b>, or start from your trains or location.</p>
         <div class="sec" id="mtSec">
           <h3>Your trips <small id="mtCount"></small></h3>
           <div id="mtList"></div>
-          <button type="button" class="btn" id="planOpen">Plan a trip</button>
         </div>
         <div class="sec" id="frSec" hidden>
           <h3>Friends' trips <small id="frCount"></small></h3>
@@ -1560,6 +1586,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
     </div>
 
     <div class="foot" id="foot">
+      <button type="button" class="text-btn fb-link" id="fbFoot" hidden>Send feedback</button>
       <details><summary>Unofficial · Sources &amp; coverage</summary>
       Amtrak positions from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak’s Track Your Train map. Commuter rail from each railroad’s public GTFS-Realtime feed: <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink</a>, Caltrain via <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>, LIRR and Metro-North via <a href="https://www.mta.info/developers" target="_blank" rel="noopener">MTA</a>, <a href="https://www3.septa.org/" target="_blank" rel="noopener">SEPTA</a>, <a href="https://www.mbta.com/developers" target="_blank" rel="noopener">MBTA</a>, MARC, VRE, Tri-Rail, South Shore Line, <a href="https://developer.rideuta.com/" target="_blank" rel="noopener">UTA</a> FrontRunner, <a href="https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds" target="_blank" rel="noopener">RTD</a> and Metra. Rail lines: FRA/BTS. Basemap: US Census, Natural Earth. Tiles: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap.
       </details>
@@ -1680,6 +1707,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
       <h2 tabindex="-1">Your account</h2>
       <p class="acct-lede">Signed in as <b id="acctEmail2"></b>. <span id="acctSync" role="status">Synced</span></p>
       <div class="acct-quick"><button type="button" class="btn" id="acctFriends"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4"/><path d="M1.6 13.6c.5-2.6 2.2-4 4.4-4s3.9 1.4 4.4 4"/><path d="M10.4 2.9a2.4 2.4 0 0 1 0 4.6M12 9.8c1.3.5 2.1 1.8 2.4 3.8"/></svg>Friends</button><button type="button" class="btn" id="acctSignOut">Sign out</button></div>
+      <p class="acct-hint acct-fb"><button type="button" class="text-btn" id="fbAcct">Send feedback</button> about Trackside.</p>
       <form class="acct-form" id="profileForm" novalidate>
         <h3>Profile</h3>
         <p class="acct-hint">Friends find you by username or number.</p>
@@ -1734,6 +1762,27 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
       </form>
     </section>
     <div id="planOut" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="onboard" id="feedback" role="dialog" aria-modal="true" aria-labelledby="fbTitle" hidden>
+  <div class="ob-card acct-card">
+    <button type="button" class="icon-btn acct-x" data-close aria-label="Close">×</button>
+    <h2 id="fbTitle" tabindex="-1">Send feedback</h2>
+    <p class="acct-lede">An idea, a train in the wrong place, something that broke: tell us. Every message is read.</p>
+    <form class="acct-form" id="fbForm" novalidate>
+      <div class="seg" role="radiogroup" aria-label="What kind of feedback">
+        <label><input type="radio" name="kind" value="idea" checked><span>Idea</span></label>
+        <label><input type="radio" name="kind" value="problem"><span>Problem</span></label>
+        <label><input type="radio" name="kind" value="other"><span>Other</span></label>
+      </div>
+      <label>Message<textarea name="message" rows="5" maxlength="4000" required placeholder="What’s on your mind?"></textarea></label>
+      <label id="fbContactRow"><span class="fb-label">Email <span>Optional</span></span><input type="email" name="contact" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+        <span class="acct-hint">Only used to reply to you.</span></label>
+      <p class="acct-err" role="alert" hidden></p>
+      <p class="acct-ok" role="status" hidden></p>
+      <button type="submit" class="btn primary">Send</button>
+    </form>
   </div>
 </div>
 
@@ -2076,7 +2125,8 @@ function relTime(t) {
   const m = Math.round((t - Date.now()) / 60000);
   if (Math.abs(m) < 1) return 'now';
   const a = Math.abs(m);
-  const s = a < 60 ? a + ' min' : Math.floor(a / 60) + ' h' + (a % 60 ? ' ' + (a % 60) + ' min' : '');
+  const days = Math.round(a / 1440);   // past a day, hours stop meaning much: "in 3 days"
+  const s = a < 60 ? a + ' min' : a < 1440 ? Math.floor(a / 60) + ' h' + (a % 60 ? ' ' + (a % 60) + ' min' : '') : days + (days === 1 ? ' day' : ' days');
   return m > 0 ? 'in ' + s : s + ' ago';
 }
 const diffMin = (a, b) => { const x = ms(a), y = ms(b); return isNaN(x) || isNaN(y) ? null : Math.round((x - y) / 60000); };
@@ -2377,7 +2427,6 @@ const gTrailPts = svg.append('g').attr('class', 'trail-pts');
 const gGhost = svg.append('g').attr('class', 'ghost').attr('aria-hidden', 'true');
 const gMe = svg.append('g').attr('class', 'me');
 gMe.append('circle').attr('class', 'acc');
-gMe.append('circle').attr('class', 'pulse').attr('r', 7);
 gMe.append('circle').attr('class', 'dot').attr('r', 7);
 const gTrains = svg.append('g').attr('class', 'trains');
 const gTLabels = svg.append('g').attr('class', 'tlabels').attr('aria-hidden', 'true');
@@ -2766,7 +2815,8 @@ function layoutTrainLabels(data) {
   const q = query.trim();
   const rank = { bad: 0, late: 1, ok: 2, none: 3 };
   const inView = data.filter((d) => d.p && !clusterHidden.has(d.id) && d.sx > -30 && d.sx < w + 30 && d.sy > -20 && d.sy < h + 20);
-  const worth = (d) => d.id === selectedId || (T.k >= LABEL_K && (inView.length <= LABEL_ALL_MAX || isFavTrain(d.num) || d.sig === 'late' || d.sig === 'bad' || (q && matches(d))));
+  // with a train open, it's the only one labelled: the others' numbers and delays are noise around it
+  const worth = (d) => d.id === selectedId || (!selectedId && T.k >= LABEL_K && (inView.length <= LABEL_ALL_MAX || isFavTrain(d.num) || d.sig === 'late' || d.sig === 'bad' || (q && matches(d))));
   const cand = inView.filter((d) => worth(d) && !(q && !matches(d)))
     .sort((a, b) => (b.id === selectedId) - (a.id === selectedId) || isFavTrain(b.num) - isFavTrain(a.num) || rank[a.sig] - rank[b.sig]);
   // labels stay off other trains' markers and their own; groups count as markers too
@@ -3642,6 +3692,7 @@ function onPositionError(err) {
     : err.code === 2 ? "Your location isn't available right now. Try again in a moment."
     : 'Location timed out. Try again.');
 }
+const ME_ACC_MAX = 60;
 function placeMe() {
   if (!me) return;
   const p = projection([me.lon, me.lat]);
@@ -3650,7 +3701,7 @@ function placeMe() {
   const p2 = projection([me.lon, me.lat + me.acc / 111320]);
   const r = p2 ? Math.abs(T.applyY(p2[1]) - y) : 0;
   gMe.attr('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
-  gMe.select('.acc').attr('r', r > 10 ? Math.min(r, 4000) : 0);
+  gMe.select('.acc').attr('r', r > 10 && r <= ME_ACC_MAX ? r : 0);   // wider than this it's a disc over whatever is there, not a hint
 }
 const kmFromMe = (lon, lat) => (me ? d3.geoDistance([me.lon, me.lat], [lon, lat]) * 6371 : Infinity);
 $('#locate').onclick = () => (meWatch != null ? stopLocate() : startLocate(true));
@@ -3670,7 +3721,7 @@ function renderTrains() {
     .on('pointerenter', (e, d) => { if (e.pointerType === 'mouse') showTip(e, trainTip(d)); })
     .on('pointermove', (e, d) => { if (e.pointerType === 'mouse') showTip(e, trainTip(d)); })
     .on('pointerleave', hideTip)
-    .on('focus', function (e, d) { roverFocusId = d.id; setTrainRover(d.id); showTipAt(d.sx, d.sy, trainTip(d)); })
+    .on('focus', function (e, d) { roverFocusId = d.id; setTrainRover(d.id); if (this.matches(':focus-visible')) showTipAt(d.sx, d.sy, trainTip(d)); })   // a tap focuses it too: no tip for that
     .on('blur', () => { roverFocusId = null; hideTip(); });
   enter.append('ellipse').attr('class', 'ring').attr('rx', 50).attr('ry', 40);
   enter.append('use').attr('class', 'spr');
@@ -6732,7 +6783,7 @@ function renderMyTrips() {
   if (tab === 'home' && !topScreen()) renderHome();   // Home shows the same trips
   if (tab === 'passport' && !topScreen()) renderPassport();
   const el = $('#mtList');
-  $('#mtSec').hidden = !ACCOUNTS_API;
+  $('#mtSec').hidden = $('#mtAdd').hidden = !ACCOUNTS_API;
   if (!session) {
     $('#mtCount').textContent = '';
     el.innerHTML = '<p class="hint">Save trips here and follow them once running. <button type="button" class="text-btn" id="mtSignIn">Sign in to save trips</button></p>';
@@ -6742,7 +6793,7 @@ function renderMyTrips() {
   $('#mtCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
   const pastOpen = el.querySelector('.mt-past[open]') ? ' open' : '';   // stays open across refreshes
   el.innerHTML = (ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p)).join('')}</div>`
-    : '<p class="hint">No trips yet. Plan one below or add from a train.</p>')
+    : '<p class="hint">No trips yet. Add one above, or from a train’s page.</p>')
     + (past.length ? `<details class="mt-past"${pastOpen}><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
 }
 async function onTripCards(e) {
@@ -6795,7 +6846,7 @@ function heroHTML(p) {
     + `${live ? '<button type="button" class="btn" data-hero="share">Share</button>' : ''}<button type="button" class="btn" data-hero="trips">All trips</button></div>`;
   if (!snap) {
     return `<div class="hero">${head}<p class="hero-status">Scheduled. Live once running.</p>`
-      + `<p class="hero-fresh">Leaves ${esc(p.from.name)} ${esc(relTime(p.from.at))}.</p>${acts(false)}</div>`;
+      + `<p class="hero-fresh">Leaves ${esc(p.from.name)} ${esc(p.from.at - Date.now() < 86400000 ? relTime(p.from.at) : dayPhrase(p.from.at, p.from.tz) + ' at ' + clockZ(p.from.at, p.from.tz))}.</p>${acts(false)}</div>`;
   }
   const span = snap.arrive - snap.depart;
   const done = span > 0 ? Math.min(1, Math.max(0, (Date.now() - snap.depart) / span)) : 0;
@@ -6824,6 +6875,7 @@ function homeSavedHTML() {
 function renderHome() {
   const hero = $('#homeHero'), more = $('#homeMore');
   $('#homeSaved').innerHTML = homeSavedHTML();
+  $('#homeAdd').hidden = !session || !heroTrip();
   if (!session) {
     more.hidden = true;
     // signed out, Home is still useful: a way in, and what this device has saved; an account adds trips and sync
@@ -6848,6 +6900,7 @@ function renderHome() {
   $('#homeCount').textContent = rest.length ? plural(rest.length, 'trip') : '';
   $('#homeList').innerHTML = rest.map((q) => tripCard(q)).join('');
 }
+$('#homeAdd').addEventListener('click', openPlan);
 $('#homeHero').addEventListener('click', (e) => {
   const b = e.target.closest('[data-hero]');
   if (!b) return;
@@ -6997,7 +7050,7 @@ async function loadFriends({ askProfile = false } = {}) {
     renderFriendTrips();
     if (!$('#friends').hidden) renderFriendsDialog();
     if (topScreen() && topScreen().type === 'train') renderDetail();
-    const quiet = $('#acct').hidden && $('#plan').hidden && $('#friends').hidden;
+    const quiet = $('#acct').hidden && $('#plan').hidden && $('#friends').hidden && $('#feedback').hidden;
     if (askProfile && quiet && needsProfile() && store.get('profileAsked', null) !== session.email) openProfilePrompt();
   } catch { /* keep showing the cached copy */ }
 }
@@ -7162,7 +7215,7 @@ $('#frFound').addEventListener('click', onFriendAction);
 let planRuns = [];   // what the result buttons refer to
 function closePlan() {
   $('#plan').hidden = true;
-  const back = $('#tripBtn') && !$('#detail').hidden ? $('#tripBtn') : $('#planOpen');
+  const back = $('#tripBtn') && !$('#detail').hidden ? $('#tripBtn') : tab === 'home' ? $('#homeAdd .btn') : $('#planOpen');
   if (back && back.getClientRects().length) back.focus();
 }
 function planMode() { return $('input[name="planMode"]:checked').value; }
@@ -7337,12 +7390,57 @@ $('#planOpen').onclick = openPlan;
 $('#plan').addEventListener('click', (e) => { if (e.target === $('#plan') || e.target.closest('[data-close]')) closePlan(); });
 trapTab($('#plan'));
 
+/* ---------------- feedback: anyone can send it, signed in or not ---------------- */
+/* Kept by the worker (POST /v1/feedback), with the account when signed in. The email is only for a reply. */
+let fbOpener = null;
+function openFeedback() {
+  fbOpener = document.activeElement;
+  closePops();
+  $('#acct').hidden = $('#plan').hidden = $('#friends').hidden = true;
+  $('#feedback').hidden = false;
+  const f = $('#fbForm');
+  showErr($('.acct-err', f), '');
+  showErr($('.acct-ok', f), '');
+  if (!f.message.value) f.contact.value = session ? session.email : '';
+  setTimeout(() => (mqMobile.matches ? $('#fbTitle') : f.message).focus(), 30);
+}
+function closeFeedback() {
+  $('#feedback').hidden = true;
+  const back = fbOpener && fbOpener.isConnected && fbOpener.getClientRects().length ? fbOpener : $('#settingsBtn');
+  fbOpener = null;
+  back.focus();
+}
+$('#fbForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, err = $('.acct-err', f), ok = $('.acct-ok', f);
+  const message = f.message.value.trim(), contact = f.contact.value.trim();
+  showErr(ok, '');
+  if (!message) { showErr(err, 'Write a message first.'); f.message.focus(); return; }
+  if (contact && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) { showErr(err, 'That email doesn’t look right. Leave it empty if you’d rather not get a reply.'); return; }
+  const page = (IN_APP ? window.Capacitor.getPlatform() : 'web') + ' · ' + (tab || '');
+  busy($('button[type=submit]', f), async () => {
+    try {
+      await api('POST', '/v1/feedback', { kind: new FormData(f).get('kind'), message, contact: contact || null, page });
+      f.reset();
+      closeFeedback();
+      toast('Thanks! Your feedback was sent.', 4000);
+    } catch (ex) { showErr(err, ex.message); }
+  });
+});
+$('#feedback').addEventListener('click', (e) => { if (e.target === $('#feedback') || e.target.closest('[data-close]')) closeFeedback(); });
+trapTab($('#feedback'));
+for (const id of ['#fbSettings', '#fbFoot', '#fbAcct']) {
+  $(id).hidden = !ACCOUNTS_API;
+  $(id).addEventListener('click', openFeedback);
+}
+
 /* ---------------- keys ---------------- */
 /* Closes whatever is on top: a dialog, a popover, the replay, then the screens one by one. False if nothing was open. */
 function closeTopmost(typing = false) {
   if (!$('#acct').hidden) { closeAccount(); return true; }
   if (!$('#plan').hidden) { closePlan(); return true; }
   if (!$('#friends').hidden) { closeFriends(); return true; }
+  if (!$('#feedback').hidden) { closeFeedback(); return true; }
   if (!$('#settings').hidden || !$('#layers').hidden) { const wasLayers = !$('#layers').hidden; closePops(); $(wasLayers ? '#layersBtn' : '#settingsBtn').focus(); return true; }
   if (typing) return true;   // otherwise, Escape in a field belongs to the field
   if (replay.active) { closeReplay(); return true; }
@@ -7352,7 +7450,7 @@ function closeTopmost(typing = false) {
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest && e.target.closest('input, select, textarea');
   if (e.key === 'Escape') { closeTopmost(!!typing); return; }
-  if (e.key === '/' && !typing && $('#friends').hidden && $('#acct').hidden && $('#plan').hidden) { e.preventDefault(); qEl.focus(); qEl.select(); }
+  if (e.key === '/' && !typing && $('#friends').hidden && $('#acct').hidden && $('#plan').hidden && $('#feedback').hidden) { e.preventDefault(); qEl.focus(); qEl.select(); }
 });
 /* Android's back button, in the app: back through dialogs and screens, then out of the app, as other apps do. */
 const nativeApp = nativePlugin('App');
@@ -7371,6 +7469,9 @@ function resolveHash() {
     const alt = liveFor(id.split('-')[0])[0];
     if (alt) { openTrain(alt.id, { pan: true, zoomIn: true }); toast(`Showing train ${alt.num}’s current run.`); }
     else toast(`Train ${id.split('-')[0]} isn’t in the live feed.`);
+  } else if (h === 'feedback') {
+    pendingHash = null;
+    if (ACCOUNTS_API) openFeedback();
   } else if (h.startsWith('s-')) {
     if (!stationsLoaded) return;
     pendingHash = null;

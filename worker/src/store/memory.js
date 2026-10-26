@@ -14,6 +14,7 @@ export class MemoryStore {
     this.resets = new Map();     // tokenHash -> reset token
     this.friendships = [];       // [{ requesterId, addresseeId, status, createdAt, acceptedAt }]
     this.pending = new Map();    // email -> pending sign-up
+    this.feedback = [];          // [feedback], oldest first
   }
 
   async createUser(u) {
@@ -47,6 +48,7 @@ export class MemoryStore {
     for (const [k, s] of this.sessions) if (s.userId === id) this.sessions.delete(k);
     for (const [k, t] of this.trips) if (t.userId === id) this.trips.delete(k);
     for (const [k, r] of this.resets) if (r.userId === id) this.resets.delete(k);
+    this.feedback = this.feedback.filter((f) => f.userId !== id);
   }
 
   async createSession(s) { this.sessions.set(s.tokenHash, { ...s }); }
@@ -123,6 +125,9 @@ export class MemoryStore {
   async getResetToken(tokenHash) { return copy(this.resets.get(tokenHash) || null); }
   async deleteResetTokensForUser(userId) { for (const [k, r] of this.resets) if (r.userId === userId) this.resets.delete(k); }
   async deleteResetTokensBefore(time) { for (const [k, r] of this.resets) if (r.expiresAt < time) this.resets.delete(k); }
+
+  async addFeedback(f) { this.feedback.push({ ...copy(f), userId: f.userId || null, contact: f.contact || null, page: f.page || null }); }
+  async listFeedback(limit) { return copy(this.feedback.slice().sort((a, b) => b.createdAt - a.createdAt).slice(0, limit)); }
 
   async countAttempts(bucket, since) { return this.attempts.filter((a) => a.bucket === bucket && a.at >= since).length; }
   async addAttempt(bucket, at) { this.attempts.push({ bucket, at }); }

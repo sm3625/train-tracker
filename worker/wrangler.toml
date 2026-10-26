@@ -8,7 +8,7 @@ workers_dev = true
 [vars]
 # Pages allowed to read the feeds from a browser. The apps (../app) load the page from capacitor://localhost on iOS
 # and https://localhost on Android. Pages opened from disk or http://localhost are allowed only by the dev server.
-ALLOWED_ORIGINS = "https://sm3625.github.io,capacitor://localhost,https://localhost"
+ALLOWED_ORIGINS = "https://sm3625.github.io,https://trackside-pearl.vercel.app,capacitor://localhost,https://localhost"
 
 # Where accounts are stored: "d1" (Cloudflare D1, set up by `npm run deploy`), "turso" (needs the secrets
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN) or "memory" (testing only: lost on restart). See README.md.

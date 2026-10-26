@@ -21,3 +21,4 @@ node_modules/
 # Browser test output (e2e/)
 e2e/test-results/
 e2e/playwright-report/
+.vercel

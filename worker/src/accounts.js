@@ -28,6 +28,7 @@
    POST   /v1/me/friends/match  { phoneHashes }              -> { matches }      (who from a phone's contacts is on Trackside)
    DELETE /v1/me/friends/:username                            -> 204              (unfriends, cancels or declines)
    GET    /v1/me/friends/trips                                -> { trips }        (friends' trips not long over, soonest first)
+   POST   /v1/feedback        { kind, message, contact?, page? }  -> 201          (signed in or not; kept with the account if signed in)
 
    A user is { id, email, username, phone, createdAt }; username and phone are null until chosen, and friends need a
    username to find each other. Friends see each other's trips and usernames, never emails or phone numbers.
@@ -70,6 +71,7 @@ const LIMITS = {
   smsAccount: [5, 3600000],       // codes texted per account per hour
   smsNumber: [5, 3600000],        // codes texted to one number per hour, whoever asks
   smsCheck: [10, 15 * 60000],     // wrong codes per account
+  feedbackIp: [10, 3600000],      // feedback messages per address per hour
 };
 const RESET_MS = 30 * 60000;
 const CODE_MS = 15 * 60000, CODE_TRIES = 5;   // a sign-up code lasts 15 minutes and allows 5 wrong tries
@@ -82,6 +84,8 @@ const FRIEND_TRIPS_BACK = 4 * 86400000;   // the longest runs take about three d
 const TRIP_DONE_MS = 6 * 3600000;         // a trip counts as over this long after its scheduled arrival, as on the site
 const PHONE = /^\+1\d{10}$/;                // US and Canada only: texts elsewhere cost more, and invite SMS fraud
 const HASH = /^[0-9a-f]{64}$/;
+const FEEDBACK_KINDS = ['idea', 'problem', 'other'];
+const FEEDBACK_MAX = 4000;                  // characters in a message
 const MATCH_MAX = 2000;                     // numbers per contacts lookup; the app sends a big address book in parts
 
 /* ---------------- passwords and tokens ---------------- */
@@ -236,7 +240,7 @@ async function sendReset(store, mailer, env, user, now) {
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /* ---------------- routes ---------------- */
-export const isAccountsPath = (p) => p.startsWith('/v1/auth/') || p === '/v1/me' || p.startsWith('/v1/me/');
+export const isAccountsPath = (p) => p.startsWith('/v1/auth/') || p === '/v1/me' || p.startsWith('/v1/me/') || p === '/v1/feedback';
 
 export async function handleAccounts(req, env, ctx, url) {
   const store = storeFor(env);
@@ -545,6 +549,22 @@ export async function handleAccounts(req, env, ctx, url) {
         .slice(0, TRIPS_MAX)
         .map((t) => ({ ...publicTrip(t), username: t.username }));
       return json({ trips }, req, env, noStore);
+    }
+    if (route === 'POST /v1/feedback') {
+      const b = await body(req);
+      const kind = FEEDBACK_KINDS.includes(b.kind) ? b.kind : 'other';
+      const message = typeof b.message === 'string' ? b.message.trim() : '';
+      if (!message) throw new ApiError(400, 'bad_feedback', 'Write a message first.');
+      if (message.length > FEEDBACK_MAX) throw new ApiError(400, 'bad_feedback', `Keep it under ${FEEDBACK_MAX} characters.`);
+      const contact = b.contact == null || b.contact === '' ? null : normEmail(b.contact);
+      if (contact) checkEmail(contact);
+      // signed in is optional: a stale token still sends the message, just without the account
+      const user = req.headers.get('Authorization') ? await signedIn(req, store, now).then((s) => s.user, () => null) : null;
+      await limit(store, 'feedback-ip:' + ip, LIMITS.feedbackIp, now);
+      await store.addAttempt('feedback-ip:' + ip, now);
+      await store.addFeedback({ id: crypto.randomUUID(), userId: user ? user.id : null, kind, message, contact,
+        page: typeof b.page === 'string' ? b.page.slice(0, 60) : null, createdAt: now });
+      return new Response(null, { status: 201, headers: corsHeaders(req, env) });
     }
     const unfriend = req.method === 'DELETE' && /^\/v1\/me\/friends\/@?([A-Za-z0-9_]{1,20})$/.exec(url.pathname);
     if (unfriend) {

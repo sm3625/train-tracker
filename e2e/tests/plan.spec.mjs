@@ -15,7 +15,7 @@ function dayFor(...providers) {
 async function openPlanner(page) {
   await openSheet(page);
   await page.locator('#tab-track').click();
-  await page.getByRole('button', { name: 'Plan a trip' }).click();
+  await page.getByRole('button', { name: 'Add a trip' }).click();
   await expect(page.locator('#plan')).toBeVisible();
 }
 

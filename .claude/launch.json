@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "trackside-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=8788", "node", "worker/dev.mjs"],
+      "port": 8788
+    }
+  ]
+}
