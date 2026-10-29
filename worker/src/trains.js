@@ -157,10 +157,15 @@ function resolve(cands, sched, tu, desc, c, now) {
 }
 
 /* The candidate runs for a live train: by trip id, or by train number (the entity id, or the trip id).
-   byTrip says which, since a number can belong to several trains. */
+   byTrip says which, since a number can belong to several trains. A mixed feed's trip ids go stale when the railroad
+   publishes a new schedule (MBTA's FBTieJobPhase17006patch-879417-6042), so a trip on a rail route falls back to the
+   number at the end of its id; resolve() still has to find it running at about that time. */
 function candidates(sched, key, desc, mixed) {
   if (desc.tripId && sched.trips && desc.tripId in sched.trips) return { runs: [sched.trips[desc.tripId]], byTrip: true };
-  if (mixed) return { runs: [], byTrip: false };
+  if (mixed) {
+    const n = desc.routeId && desc.routeId in sched.routes && ((desc.tripId || '').match(/(\d+)$/) || [])[1];
+    return { runs: (n && sched.nums[n]) || [], byTrip: false };
+  }
   for (const n of [key, desc.tripId, ((desc.tripId || '').match(/\d+/) || [])[0]]) {
     if (n && sched.nums[n]) return { runs: sched.nums[n], byTrip: false };
   }

@@ -98,6 +98,18 @@ test('mixed feeds keep only trains; pure rail feeds keep an unknown train that h
   assert.equal(t.lat, 40.05);
 });
 
+test('a mixed feed\'s train with a trip id from a newer schedule is matched by the number ending it (MBTA)', () => {
+  const mixed = { ...AGENCY, mixed: true };
+  const veh = (tripId, routeId) => ({ id: 'v', vehicle: { trip: { tripId, routeId, startDate: day }, position: { lat: 40.05, lon: -74 }, timestamp: at(8.2 * H) / 1000 } });
+  const [t] = buildTrains(mixed, SCHED, [feed(veh('NewPhase17006patch-879417-101', 'R'))], at(8.2 * H));
+  assert.equal(t.trainID, '101-X');
+  assert.equal(t.stations.length, 3);
+  // not on a rail route: a bus, whatever its id ends in
+  assert.deepEqual(buildTrains(mixed, SCHED, [feed(veh('NewPhase-879417-101', 'B12'))], at(8.2 * H)), []);
+  // on the route, but that number isn't running at this hour
+  assert.deepEqual(buildTrains(mixed, SCHED, [feed(veh('NewPhase-879417-101', 'R'))], at(20 * H)), []);
+});
+
 /* ---------------- dead trains (GONE_MS, GHOST_MS) ---------------- */
 test('a parked consist the feed still lists a day and a half on is left out (SEPTA); the same vehicle reporting now is kept', () => {
   // SEPTA served these: no trip the timetable knows, named by the cars, last reported 34 hours earlier

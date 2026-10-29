@@ -312,8 +312,8 @@ button:disabled { cursor: default; opacity: .45; }
 @keyframes push-in { from { transform: translateX(36px); opacity: 0; } }
 @keyframes pop-in { from { transform: translateX(-36px); opacity: 0; } }
 @keyframes fade-in { from { opacity: 0; } }
-#body[data-nav="push"] > section:not([hidden]) { animation: push-in .5s var(--spring) both; }
-#body[data-nav="pop"] > section:not([hidden]) { animation: pop-in .5s var(--spring) both; }
+#body[data-nav="push"] > section:not([hidden]) { animation: push-in .34s var(--spring) both; }
+#body[data-nav="pop"] > section:not([hidden]) { animation: pop-in .34s var(--spring) both; }
 #body[data-nav="tab"] > section:not([hidden]) { animation: fade-in .22s ease both; }
 
 /* ---------- explore view */
@@ -4174,6 +4174,7 @@ function navDirection(s) {
   shownDepth = nav.length;
 }
 function showScreen({ reset = false, restore = false } = {}) {
+  clearSwipeBack();
   const s = topScreen();
   navDirection(s);
   const prevSel = selectedId;
@@ -5793,7 +5794,7 @@ $('#live').addEventListener('pointerdown', dragStart);
 document.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return;
   const dy = e.clientY - drag.y0;
-  if (!drag.moved && Math.abs(dy) < 6) return;
+  if (!drag.moved && Math.abs(dy) < 3) return;
   drag.moved = true;
   trackY(drag, e.clientY);
   dragSheetTo(drag.s0 + dy);
@@ -5818,20 +5819,39 @@ function snapTarget(v) {
   const order = [['full', h.full], ['half', h.half], ['collapsed', h.collapsed]];
   const end = sheet.y + project(v);
   let best = order.reduce((b, o) => (Math.abs(o[1] - end) < Math.abs(b[1] - end) ? o : b));
-  if (Math.abs(v) > 300 && (v > 0 ? best[1] <= sheet.y + 4 : best[1] >= sheet.y - 4)) {
+  if (Math.abs(v) > 180 && (v > 0 ? best[1] <= sheet.y + 4 : best[1] >= sheet.y - 4)) {
     const next = v > 0 ? order.find(([, y]) => y > sheet.y + 4) : order.slice().reverse().find(([, y]) => y < sheet.y - 4);
     if (next) best = next;
   }
   return best[0];
 }
 /* swiping the panel's content moves the sheet when the content can't scroll that way, like a native sheet:
-   up expands it until it's full, and down from the very top shrinks it. Sideways swipes stay with chip rows. */
+   up expands it until it's full, and down from the very top shrinks it. On a train or station, swiping right drags the
+   screen off to go back, like a native navigation stack. Sideways swipes stay with chip rows that can scroll back. */
 let bdrag = null;
+// a sideways-scrolling row under the finger that isn't at its start takes a rightward swipe for itself
+function scrollsLeft(el) {
+  for (; el && el !== bodyEl; el = el.parentElement) {
+    if (el.scrollLeft > 0 && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+const swipeSection = () => $$('#detail, #station', bodyEl).find((el) => !el.hidden);
+function clearSwipeBack() {
+  for (const el of $$('#detail, #station', bodyEl)) {
+    el.style.transform = el.style.opacity = el.style.transition = el.style.animation = '';
+  }
+}
+function placeSwipeBack(sec, x) {
+  const w = bodyEl.clientWidth || 1;
+  sec.style.transform = `translate3d(${x}px, 0, 0)`;
+  sec.style.opacity = String(1 - 0.35 * Math.min(1, x / w));
+}
 bodyEl.addEventListener('touchstart', (e) => {
   bdrag = null;
   if (!mqMobile.matches || e.touches.length !== 1) return;
   const p = e.touches[0];
-  bdrag = { x0: p.clientX, y0: p.clientY, s0: 0, mode: null, pts: [], caught: stopSheet() };
+  bdrag = { x0: p.clientX, y0: p.clientY, s0: 0, mode: null, pts: [], xs: { pts: [] }, caught: stopSheet(), target: e.target };
 }, { passive: true });
 bodyEl.addEventListener('touchmove', (e) => {
   if (!bdrag) return;
@@ -5839,21 +5859,54 @@ bodyEl.addEventListener('touchmove', (e) => {
   const dx = p.clientX - bdrag.x0, dy = p.clientY - bdrag.y0;
   if (!bdrag.mode) {
     if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
-    // by where the sheet is, not where it was headed: one caught mid-flight can be pushed on either way
-    const take = Math.abs(dy) > Math.abs(dx) && e.cancelable
-      && (dy < 0 ? sheet.y > 1 : bodyEl.scrollTop <= 0 && sheet.y < sheetHeights().collapsed - 1);
-    if (!take) { if (bdrag.caught) setSheet(sheet.state); bdrag = null; return; }
-    Object.assign(bdrag, { mode: 'sheet', y0: p.clientY, s0: sheet.y });
+    // mostly sideways and rightward, on a screen that has one below it: go back
+    const back = nav.length && dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2 && e.cancelable && !scrollsLeft(bdrag.target);
+    const sec = back && swipeSection();
+    if (sec) {
+      if (bdrag.caught) setSheet(sheet.state);
+      sec.style.animation = 'none';
+      sec.style.transition = 'none';
+      Object.assign(bdrag, { mode: 'back', sec, x0: p.clientX });
+    } else {
+      // by where the sheet is, not where it was headed: one caught mid-flight can be pushed on either way
+      const take = Math.abs(dy) > Math.abs(dx) && e.cancelable
+        && (dy < 0 ? sheet.y > 1 : bodyEl.scrollTop <= 0 && sheet.y < sheetHeights().collapsed - 1);
+      if (!take) { if (bdrag.caught) setSheet(sheet.state); bdrag = null; return; }
+      Object.assign(bdrag, { mode: 'sheet', y0: p.clientY, s0: sheet.y });
+    }
   }
   e.preventDefault();
+  if (bdrag.mode === 'back') {
+    const x = p.clientX - bdrag.x0;
+    trackY(bdrag.xs, p.clientX);
+    placeSwipeBack(bdrag.sec, x < 0 ? -rubberband(-x, bodyEl.clientWidth) : x);
+    return;
+  }
   trackY(bdrag, p.clientY);
   dragSheetTo(bdrag.s0 + p.clientY - bdrag.y0);
 }, { passive: false });
-const endBodyDrag = () => {
+/* A released back swipe goes back if it's past a third of the way or flicked rightward; otherwise it springs home. */
+function endSwipeBack(d, cancelled) {
+  const sec = d.sec, w = bodyEl.clientWidth || 1;
+  const x = parseFloat((sec.style.transform.match(/translate3d\((-?[\d.]+)px/) || [])[1]) || 0;
+  const v = cancelled ? 0 : releaseVelocity(d.xs);
+  const go = !cancelled && (v > 250 || (x > w / 3 && v > -150));
+  const ms = reduceMotion ? 0 : Math.round(Math.max(120, Math.min(280, (go ? w - x : x) / Math.max(1, Math.abs(v)) * 1000 * 1.6)));
+  sec.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2, .8, .3, 1), opacity ${ms}ms ease` : 'none';
+  if (go) {
+    placeSwipeBack(sec, w);
+    setTimeout(() => { goBack(); setTimeout(clearSwipeBack, 400); }, ms);
+  } else {
+    placeSwipeBack(sec, 0);
+    setTimeout(() => { if (!bdrag || bdrag.sec !== sec) clearSwipeBack(); }, ms + 20);
+  }
+}
+const endBodyDrag = (e) => {
   const d = bdrag;
   bdrag = null;
   if (!d) return;
-  if (d.mode) { const v = releaseVelocity(d); settleSheet(snapTarget(v), v); }
+  if (d.mode === 'back') endSwipeBack(d, e && e.type === 'touchcancel');
+  else if (d.mode) { const v = releaseVelocity(d); settleSheet(snapTarget(v), v); }
   else if (d.caught) setSheet(sheet.state);
 };
 bodyEl.addEventListener('touchend', endBodyDrag);
