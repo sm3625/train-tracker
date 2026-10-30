@@ -1,0 +1,24 @@
+{
+  "name": "trackside-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "node build.mjs && cap sync",
+    "ios": "node build.mjs && cap sync ios && cap open ios",
+    "android": "node build.mjs && cap sync android && cap open android",
+    "icons": "capacitor-assets generate --ios --android --iconBackgroundColor \"#1d1d1b\" --iconBackgroundColorDark \"#1d1d1b\" --splashBackgroundColor \"#ffffff\" --splashBackgroundColorDark \"#171816\""
+  },
+  "dependencies": {
+    "@capacitor-community/contacts": "^8.0.0",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/geolocation": "^8.2.3",
+    "@capacitor/ios": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3"
+  }
+}

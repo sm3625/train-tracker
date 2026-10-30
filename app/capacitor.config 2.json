@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.sm3625.trackside",
+  "appName": "Trackside",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}
