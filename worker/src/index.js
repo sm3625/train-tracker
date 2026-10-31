@@ -114,11 +114,15 @@ async function railroad(a, env, ctx, now, mayRebuild, budget) {
     return { trains: [], status: 'waiting: request limit, will retry' };
   }
   try {
-    const got = await Promise.all(sources.map(([kind, f]) => feed(a.provider + ' ' + kind, f, a.auth, env, budget)));
+    // one feed lost costs what it adds, not the railroad: trains still come from the other (FrontRunner's trip updates)
+    const settled = await Promise.allSettled(sources.map(([kind, f]) => feed(a.provider + ' ' + kind, f, a.auth, env, budget)));
+    const lost = settled.find((r) => r.status === 'rejected');
+    const got = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+    if (!got.length) throw lost.reason;
     const keep = a.mixed ? railFilter(sched) : undefined;
     const feeds = got.map((g) => decodeFeed(g.bytes, keep));
     const trains = buildTrains(a, sched, feeds, now);
-    const err = got.find((g) => g.error);
+    const err = (lost && { error: lost.reason.message }) || got.find((g) => g.error);
     const quiet = feedSilence(feeds, now);   // a feed that answers but has stopped updating (see GONE_MS)
     const status = err ? 'stale: ' + scrub(err.error, env)
       : quiet > GONE_MS ? `stale: the feed hasn't updated in ${Math.round(quiet / 3600000)} h; its trains are left out` : 'ok';

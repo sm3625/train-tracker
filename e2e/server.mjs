@@ -16,6 +16,11 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(dir, '..');
 const fixture = (name) => readFile(path.join(dir, 'fixtures', name));
 
+// The worker keeps the page's clock (see openSite in tests/helpers.mjs): held at when the fixtures were recorded, or
+// trips on their trains are refused as over a week old once the recording is.
+const realNow = Date.now, shift = Date.parse((await fixture('recorded-at.txt')).toString().trim()) - realNow();
+Date.now = () => realNow() + shift;
+
 // TURNSTILE: every sign-up passes the bot check, as a person's would, so the suite's many sign-ups get the
 // higher per-address limit (worker/src/turnstile.js)
 const env = { ALLOWED_ORIGINS: 'null', ALLOW_LOCALHOST: 'true', ACCOUNTS_STORE: new SqlStore(sqliteClient(':memory:')), PASSWORD_ITERATIONS: '1000',
