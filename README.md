@@ -3,7 +3,7 @@
 An unofficial live map of Amtrak, VIA Rail, Brightline and U.S. commuter rail trains, with a trip planner, saved
 trains and stations, and optional accounts that sync between devices.
 
-Live at **https://sm3625.github.io/train-tracker/**, and packaged as an iOS and Android app.
+Live at **https://trackside-pearl.vercel.app/**, and packaged as an iOS and Android app.
 
 ## How it fits together
 
