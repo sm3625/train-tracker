@@ -44,11 +44,12 @@ runs also concluded `failure`. So CI is not currently a gate, and it needs fixin
 | South Shore Line | 12 | 11 | Trip ID or number | Degrades to grey |
 | VRE | 0 | 0 | Trip ID or number | Probably off-peak, but today nothing can tell that apart from a failure |
 
-**FrontRunner's outage:** the worker reports `FrontRunner trips: HTTP 403`. The same URL returns 200 from a laptop, so
-the block looks specific to the worker's network (not yet confirmed). Vehicle positions were available, with 8 of the
-live trips in the timetable, but `railroad()` uses `Promise.all`, so losing the trip updates feed lost every train.
-This is the same class of failure as MBTA, from a different cause, which is why fixes have to work by layer rather
-than by railroad.
+**FrontRunner's outage:** on Oct 30 the worker got `FrontRunner trips: HTTP 403`, and `railroad()` used `Promise.all`,
+so losing that one feed lost every train. That's fixed, but by Oct 31 the vehicle feed returned 403 as well. Both URLs
+still return 200 from a laptop. From Cloudflare they return 403 whatever the User-Agent, with a "requested URL was
+rejected" page from the web firewall in front of UTA's site (`server: volt-adc`). So the block is on where the request
+comes from, not how it's written. It's the same class of failure as MBTA, from a different cause, which is why fixes
+have to work by layer rather than by railroad.
 
 ## The defences
 

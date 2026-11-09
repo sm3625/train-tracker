@@ -39,6 +39,13 @@ The page checks `IN_APP` (true only inside the app) for the few things that work
 - **Timetables** for the trip planner come from the website, which refreshes them weekly; the copy built into the app
   is only a fallback for when the site can't be reached. (Amtrak's covers about a week, so a built-in copy goes stale
   fast.)
+- **Trip alerts** (`@capacitor/local-notifications`): notifications about the trains in someone's trips. The train
+  leaves their station in 10 minutes, it's 10 or more minutes late (and again when that changes by 10), it has caught
+  up, it's cancelled, or it's 5 minutes from their stop. The app asks to send them when someone saves their first
+  trip; Settings > "Alerts for my trips" turns them off and on. Tapping one opens the train. The rules are
+  `../worker/src/alerts.js`, which `build.mjs` copies in, so the worker can later send the same alerts as push
+  notifications. Until then, the timed ones (leaving, arriving) are handed to the phone ahead of time and come even
+  with the app closed, at the last times the app knew. Delays and cancellations are only noticed while it's open.
 - **Android's back button** steps back through dialogs and screens, as Escape does on the web, then leaves the app.
 - **The status bar's** icons follow the theme picked in Settings (Light, Dark or Auto) rather than the phone's, so they
   stay readable over the map.

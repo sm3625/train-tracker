@@ -12,6 +12,7 @@
 <!-- Android (the app, and the site in an Android browser) gets a few touches of its own: see :root[data-os="android"] -->
 <script>window.TRACKSIDE_SITE_URL = "https://sm3625.github.io/train-tracker/";</script>
 <script src="capacitor-runtime.js"></script>
+<script type="module">import * as alerts from './alerts.js'; window.TracksideAlerts = alerts;</script>
 <script>if (/Android/i.test(navigator.userAgent)) document.documentElement.dataset.os = 'android';</script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css" integrity="sha512-qN/uDg9bS3IAldWq4lswyC+9ZSoShtfyNDp+FaJhdtXJqdgubHA+s4nB8BajW0m90Y0+RBGbqu2anzbxiQYdHA==" crossorigin="anonymous">
 <style>
@@ -314,8 +315,8 @@ button:disabled { cursor: default; opacity: .45; }
 @keyframes push-in { from { transform: translateX(36px); opacity: 0; } }
 @keyframes pop-in { from { transform: translateX(-36px); opacity: 0; } }
 @keyframes fade-in { from { opacity: 0; } }
-#body[data-nav="push"] > section:not([hidden]) { animation: push-in .5s var(--spring) both; }
-#body[data-nav="pop"] > section:not([hidden]) { animation: pop-in .5s var(--spring) both; }
+#body[data-nav="push"] > section:not([hidden]) { animation: push-in .34s var(--spring) both; }
+#body[data-nav="pop"] > section:not([hidden]) { animation: pop-in .34s var(--spring) both; }
 #body[data-nav="tab"] > section:not([hidden]) { animation: fade-in .22s ease both; }
 
 /* ---------- explore view */
@@ -1461,6 +1462,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
           <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
         </div></fieldset>
         <label class="check"><input type="checkbox" id="simplifyToggle"> Simplify display</label>
+        <label class="check" id="alertsRow" hidden><input type="checkbox" id="alertsToggle"> Alerts for my trips</label>
         <button type="button" class="fb-row" id="fbSettings" hidden>Send feedback<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
       </div>
     </div>
@@ -4176,6 +4178,7 @@ function navDirection(s) {
   shownDepth = nav.length;
 }
 function showScreen({ reset = false, restore = false } = {}) {
+  clearSwipeBack();
   const s = topScreen();
   navDirection(s);
   const prevSel = selectedId;
@@ -5795,7 +5798,7 @@ $('#live').addEventListener('pointerdown', dragStart);
 document.addEventListener('pointermove', (e) => {
   if (!drag || e.pointerId !== drag.id) return;
   const dy = e.clientY - drag.y0;
-  if (!drag.moved && Math.abs(dy) < 6) return;
+  if (!drag.moved && Math.abs(dy) < 3) return;
   drag.moved = true;
   trackY(drag, e.clientY);
   dragSheetTo(drag.s0 + dy);
@@ -5820,20 +5823,39 @@ function snapTarget(v) {
   const order = [['full', h.full], ['half', h.half], ['collapsed', h.collapsed]];
   const end = sheet.y + project(v);
   let best = order.reduce((b, o) => (Math.abs(o[1] - end) < Math.abs(b[1] - end) ? o : b));
-  if (Math.abs(v) > 300 && (v > 0 ? best[1] <= sheet.y + 4 : best[1] >= sheet.y - 4)) {
+  if (Math.abs(v) > 180 && (v > 0 ? best[1] <= sheet.y + 4 : best[1] >= sheet.y - 4)) {
     const next = v > 0 ? order.find(([, y]) => y > sheet.y + 4) : order.slice().reverse().find(([, y]) => y < sheet.y - 4);
     if (next) best = next;
   }
   return best[0];
 }
 /* swiping the panel's content moves the sheet when the content can't scroll that way, like a native sheet:
-   up expands it until it's full, and down from the very top shrinks it. Sideways swipes stay with chip rows. */
+   up expands it until it's full, and down from the very top shrinks it. On a train or station, swiping right drags the
+   screen off to go back, like a native navigation stack. Sideways swipes stay with chip rows that can scroll back. */
 let bdrag = null;
+// a sideways-scrolling row under the finger that isn't at its start takes a rightward swipe for itself
+function scrollsLeft(el) {
+  for (; el && el !== bodyEl; el = el.parentElement) {
+    if (el.scrollLeft > 0 && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+const swipeSection = () => $$('#detail, #station', bodyEl).find((el) => !el.hidden);
+function clearSwipeBack() {
+  for (const el of $$('#detail, #station', bodyEl)) {
+    el.style.transform = el.style.opacity = el.style.transition = el.style.animation = '';
+  }
+}
+function placeSwipeBack(sec, x) {
+  const w = bodyEl.clientWidth || 1;
+  sec.style.transform = `translate3d(${x}px, 0, 0)`;
+  sec.style.opacity = String(1 - 0.35 * Math.min(1, x / w));
+}
 bodyEl.addEventListener('touchstart', (e) => {
   bdrag = null;
   if (!mqMobile.matches || e.touches.length !== 1) return;
   const p = e.touches[0];
-  bdrag = { x0: p.clientX, y0: p.clientY, s0: 0, mode: null, pts: [], caught: stopSheet() };
+  bdrag = { x0: p.clientX, y0: p.clientY, s0: 0, mode: null, pts: [], xs: { pts: [] }, caught: stopSheet(), target: e.target };
 }, { passive: true });
 bodyEl.addEventListener('touchmove', (e) => {
   if (!bdrag) return;
@@ -5841,21 +5863,54 @@ bodyEl.addEventListener('touchmove', (e) => {
   const dx = p.clientX - bdrag.x0, dy = p.clientY - bdrag.y0;
   if (!bdrag.mode) {
     if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
-    // by where the sheet is, not where it was headed: one caught mid-flight can be pushed on either way
-    const take = Math.abs(dy) > Math.abs(dx) && e.cancelable
-      && (dy < 0 ? sheet.y > 1 : bodyEl.scrollTop <= 0 && sheet.y < sheetHeights().collapsed - 1);
-    if (!take) { if (bdrag.caught) setSheet(sheet.state); bdrag = null; return; }
-    Object.assign(bdrag, { mode: 'sheet', y0: p.clientY, s0: sheet.y });
+    // mostly sideways and rightward, on a screen that has one below it: go back
+    const back = nav.length && dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2 && e.cancelable && !scrollsLeft(bdrag.target);
+    const sec = back && swipeSection();
+    if (sec) {
+      if (bdrag.caught) setSheet(sheet.state);
+      sec.style.animation = 'none';
+      sec.style.transition = 'none';
+      Object.assign(bdrag, { mode: 'back', sec, x0: p.clientX });
+    } else {
+      // by where the sheet is, not where it was headed: one caught mid-flight can be pushed on either way
+      const take = Math.abs(dy) > Math.abs(dx) && e.cancelable
+        && (dy < 0 ? sheet.y > 1 : bodyEl.scrollTop <= 0 && sheet.y < sheetHeights().collapsed - 1);
+      if (!take) { if (bdrag.caught) setSheet(sheet.state); bdrag = null; return; }
+      Object.assign(bdrag, { mode: 'sheet', y0: p.clientY, s0: sheet.y });
+    }
   }
   e.preventDefault();
+  if (bdrag.mode === 'back') {
+    const x = p.clientX - bdrag.x0;
+    trackY(bdrag.xs, p.clientX);
+    placeSwipeBack(bdrag.sec, x < 0 ? -rubberband(-x, bodyEl.clientWidth) : x);
+    return;
+  }
   trackY(bdrag, p.clientY);
   dragSheetTo(bdrag.s0 + p.clientY - bdrag.y0);
 }, { passive: false });
-const endBodyDrag = () => {
+/* A released back swipe goes back if it's past a third of the way or flicked rightward; otherwise it springs home. */
+function endSwipeBack(d, cancelled) {
+  const sec = d.sec, w = bodyEl.clientWidth || 1;
+  const x = parseFloat((sec.style.transform.match(/translate3d\((-?[\d.]+)px/) || [])[1]) || 0;
+  const v = cancelled ? 0 : releaseVelocity(d.xs);
+  const go = !cancelled && (v > 250 || (x > w / 3 && v > -150));
+  const ms = reduceMotion ? 0 : Math.round(Math.max(120, Math.min(280, (go ? w - x : x) / Math.max(1, Math.abs(v)) * 1000 * 1.6)));
+  sec.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2, .8, .3, 1), opacity ${ms}ms ease` : 'none';
+  if (go) {
+    placeSwipeBack(sec, w);
+    setTimeout(() => { goBack(); setTimeout(clearSwipeBack, 400); }, ms);
+  } else {
+    placeSwipeBack(sec, 0);
+    setTimeout(() => { if (!bdrag || bdrag.sec !== sec) clearSwipeBack(); }, ms + 20);
+  }
+}
+const endBodyDrag = (e) => {
   const d = bdrag;
   bdrag = null;
   if (!d) return;
-  if (d.mode) { const v = releaseVelocity(d); settleSheet(snapTarget(v), v); }
+  if (d.mode === 'back') endSwipeBack(d, e && e.type === 'touchcancel');
+  else if (d.mode) { const v = releaseVelocity(d); settleSheet(snapTarget(v), v); }
   else if (d.caught) setSheet(sheet.state);
 };
 bodyEl.addEventListener('touchend', endBodyDrag);
@@ -5915,6 +5970,7 @@ $('#settings').addEventListener('change', (e) => {
   else if (i.name === 'motion') { prefs.motion = i.value; store.set('motion', i.value); applyMotion(); }
   else if (i.name === 'density') setDensity(i.value);
   else if (i.id === 'simplifyToggle') setSimplify(i.checked);
+  else if (i.id === 'alertsToggle') setTripAlerts(i.checked, true);
 });
 function setSimplify(on, save = true) {
   prefs.simplify = on;
@@ -6161,6 +6217,7 @@ function endSession(msg) {
   clearTimeout(pushTimer);
   myTrips = [];
   store.set('tripsCache', []);
+  tripAlerts();   // signed out: takes back the alerts already handed to the phone
   friendTrips = [];
   people = NO_PEOPLE;
   found = null;
@@ -6542,6 +6599,7 @@ async function loadTrips() {
     myTrips = (await api('GET', '/v1/me/trips')).trips;
     store.set('tripsCache', myTrips);
     renderMyTrips();
+    tripAlerts();
     if (topScreen() && topScreen().type === 'train') renderDetail();
   } catch { /* keep showing the cached copy */ }
 }
@@ -6550,6 +6608,8 @@ async function saveTrip(trip) {
   myTrips = [...myTrips, saved].sort((x, y) => x.from.at - y.from.at);
   store.set('tripsCache', myTrips);
   renderMyTrips();
+  if (nativeNotes && alertsOn === null) setTripAlerts(true);   // the first trip is when the app asks to send alerts
+  else tripAlerts();
   if (topScreen() && topScreen().type === 'train') renderDetail();
   return saved;
 }
@@ -6558,6 +6618,7 @@ async function dropTrip(id) {
   myTrips = myTrips.filter((t) => t.id !== id);
   store.set('tripsCache', myTrips);
   renderMyTrips();
+  tripAlerts();
   if (topScreen() && topScreen().type === 'train') renderDetail();
 }
 
@@ -6914,6 +6975,93 @@ $('#homeHero').addEventListener('click', (e) => {
     case 'signin': openAccount('auth', 'Sign in to save trips.'); break;
   }
 });
+
+/* ---------------- trip alerts: notifications about saved trips (the app only) ---------------- */
+/* The rules live in worker/src/alerts.js, which app/build.mjs adds to the app as window.TracksideAlerts; the worker
+   will use the same file to send these as push notifications. Here they run after every update while the app is open.
+   Alerts due at a set time ("leaves Boston in 10 min", "arriving at New York in 5 min") are handed to the phone ahead
+   of time, so they come even with the app closed, at the times it last knew. Delays and cancellations are noticed
+   only while the app is open, until the worker sends them. On the website there's no plugin, and none of this runs. */
+const nativeNotes = nativePlugin('LocalNotifications');
+let alertsOn = store.get('tripAlerts', null);      // null: never asked; then the person's choice
+let alertState = store.get('alertState', {});      // trip id -> what the rules last saw, from evaluate()
+let alertPending = store.get('alertPending', {});  // notification id -> when, for the timed ones handed to the phone
+let alertsBusy = false, alertsAgain = false, alertOpen = null;
+/* Notification ids are numbers (Android needs a 32-bit int), the same one for the same alert every time. */
+const noteId = (key) => { let h = 7; for (const c of key) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0; return (h & 0x7fffffff) || 1; };
+async function alertsAllowed(ask) {
+  try {
+    let p = (await nativeNotes.checkPermissions()).display;
+    if (ask && p !== 'granted' && p !== 'denied') p = (await nativeNotes.requestPermissions()).display;
+    return p === 'granted';
+  } catch { return false; }
+}
+async function setTripAlerts(on, fromSettings = false) {
+  if (on && !(await alertsAllowed(true))) {
+    on = false;
+    if (fromSettings) toast('Notifications are off for Trackside. Turn them on in your phone’s Settings, then try again.');
+  }
+  alertsOn = on;
+  store.set('tripAlerts', on);
+  $('#alertsToggle').checked = on;
+  tripAlerts();
+}
+async function tripAlerts() {
+  const A = window.TracksideAlerts;
+  if (!nativeNotes || !A) return;
+  if (alertsBusy) { alertsAgain = true; return; }
+  alertsBusy = true;
+  try {
+    const on = !!session && alertsOn === true && await alertsAllowed(false);
+    const now = Date.now(), want = {}, fire = [];
+    if (on) {
+      for (const p of myTrips) {
+        if (tripDone(p)) continue;
+        const live = liveForTrip(p);
+        const snap = live && A.snapshot({ stops: live.stops, lastIdx: live.lastIdx, cancelled: live.cancelled, reportedAt: live.posTime }, p);
+        if (snap) {
+          const r = A.evaluate(p, alertState[p.id], snap, now);
+          alertState[p.id] = r.state;
+          fire.push(...r.events);
+        }
+        for (const r of A.reminders(p, snap, now)) want[noteId(r.key)] = r;
+      }
+    }
+    for (const id of Object.keys(alertState)) if (!on || !myTrips.some((p) => p.id === id)) delete alertState[id];
+    store.set('alertState', alertState);
+    // Timed ones: take back those no longer wanted or whose time moved, then hand over the new ones. One whose time
+    // has passed has been shown, and stays in the notification list.
+    const drop = Object.keys(alertPending).filter((id) => !want[id] || Math.abs(want[id].at - alertPending[id]) >= 60000);
+    const cancel = drop.filter((id) => alertPending[id] > now);
+    if (cancel.length) await nativeNotes.cancel({ notifications: cancel.map((id) => ({ id: Number(id) })) });
+    for (const id of drop) delete alertPending[id];
+    const add = Object.entries(want).filter(([id]) => !(id in alertPending));
+    const note = (id, x) => ({ id: Number(id), title: x.title, body: x.body, extra: { trip: x.trip, kind: x.kind },
+      ...(x.at ? { schedule: { at: new Date(x.at), allowWhileIdle: true } } : {}) });
+    const batch = [...add.map(([id, x]) => note(id, x)), ...fire.map((x) => note(noteId(x.key), x))];
+    if (batch.length) await nativeNotes.schedule({ notifications: batch });
+    for (const [id, x] of add) alertPending[id] = x.at;
+    store.set('alertPending', alertPending);
+  } catch { /* alerts never get in the way of the page */ }
+  alertsBusy = false;
+  if (alertsAgain) { alertsAgain = false; tripAlerts(); }
+}
+/* Tapping an alert opens its trip's train, once the trains have loaded (the tap may have started the app). */
+function openAlertTrip() {
+  const p = alertOpen && myTrips.find((q) => q.id === alertOpen);
+  if (!p || (!lastOk && !lastError)) return;
+  alertOpen = null;
+  closeTopmost();
+  showTripTrain(p);
+}
+if (nativeNotes) {
+  $('#alertsRow').hidden = false;
+  $('#alertsToggle').checked = alertsOn === true;
+  nativeNotes.addListener('localNotificationActionPerformed', (a) => {
+    alertOpen = a?.notification?.extra?.trip || null;
+    openAlertTrip();
+  });
+}
 
 /* ---------------- friends: people who see each other's trips ---------------- */
 /* Friends find each other by username, never by email. Asking someone who already asked you makes you friends. */
@@ -7694,6 +7842,7 @@ async function refresh() {
     lastError = null;
     ingest(json);
     showError(null);
+    tripAlerts();
     loading = false;
     nextAt = Date.now() + REFRESH_S * 1000;
     setStatus('ok');
@@ -7705,6 +7854,7 @@ async function refresh() {
     setStatus('error');
     if (!topScreen()) renderTab();   // lists and Home show the last copy as offline
   }
+  openAlertTrip();
   loadStations();
 }
 

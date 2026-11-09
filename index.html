@@ -1459,6 +1459,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
           <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
         </div></fieldset>
         <label class="check"><input type="checkbox" id="simplifyToggle"> Simplify display</label>
+        <label class="check" id="alertsRow" hidden><input type="checkbox" id="alertsToggle"> Alerts for my trips</label>
         <button type="button" class="fb-row" id="fbSettings" hidden>Send feedback<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
       </div>
     </div>
@@ -5966,6 +5967,7 @@ $('#settings').addEventListener('change', (e) => {
   else if (i.name === 'motion') { prefs.motion = i.value; store.set('motion', i.value); applyMotion(); }
   else if (i.name === 'density') setDensity(i.value);
   else if (i.id === 'simplifyToggle') setSimplify(i.checked);
+  else if (i.id === 'alertsToggle') setTripAlerts(i.checked, true);
 });
 function setSimplify(on, save = true) {
   prefs.simplify = on;
@@ -6212,6 +6214,7 @@ function endSession(msg) {
   clearTimeout(pushTimer);
   myTrips = [];
   store.set('tripsCache', []);
+  tripAlerts();   // signed out: takes back the alerts already handed to the phone
   friendTrips = [];
   people = NO_PEOPLE;
   found = null;
@@ -6593,6 +6596,7 @@ async function loadTrips() {
     myTrips = (await api('GET', '/v1/me/trips')).trips;
     store.set('tripsCache', myTrips);
     renderMyTrips();
+    tripAlerts();
     if (topScreen() && topScreen().type === 'train') renderDetail();
   } catch { /* keep showing the cached copy */ }
 }
@@ -6601,6 +6605,8 @@ async function saveTrip(trip) {
   myTrips = [...myTrips, saved].sort((x, y) => x.from.at - y.from.at);
   store.set('tripsCache', myTrips);
   renderMyTrips();
+  if (nativeNotes && alertsOn === null) setTripAlerts(true);   // the first trip is when the app asks to send alerts
+  else tripAlerts();
   if (topScreen() && topScreen().type === 'train') renderDetail();
   return saved;
 }
@@ -6609,6 +6615,7 @@ async function dropTrip(id) {
   myTrips = myTrips.filter((t) => t.id !== id);
   store.set('tripsCache', myTrips);
   renderMyTrips();
+  tripAlerts();
   if (topScreen() && topScreen().type === 'train') renderDetail();
 }
 
@@ -6965,6 +6972,93 @@ $('#homeHero').addEventListener('click', (e) => {
     case 'signin': openAccount('auth', 'Sign in to save trips.'); break;
   }
 });
+
+/* ---------------- trip alerts: notifications about saved trips (the app only) ---------------- */
+/* The rules live in worker/src/alerts.js, which app/build.mjs adds to the app as window.TracksideAlerts; the worker
+   will use the same file to send these as push notifications. Here they run after every update while the app is open.
+   Alerts due at a set time ("leaves Boston in 10 min", "arriving at New York in 5 min") are handed to the phone ahead
+   of time, so they come even with the app closed, at the times it last knew. Delays and cancellations are noticed
+   only while the app is open, until the worker sends them. On the website there's no plugin, and none of this runs. */
+const nativeNotes = nativePlugin('LocalNotifications');
+let alertsOn = store.get('tripAlerts', null);      // null: never asked; then the person's choice
+let alertState = store.get('alertState', {});      // trip id -> what the rules last saw, from evaluate()
+let alertPending = store.get('alertPending', {});  // notification id -> when, for the timed ones handed to the phone
+let alertsBusy = false, alertsAgain = false, alertOpen = null;
+/* Notification ids are numbers (Android needs a 32-bit int), the same one for the same alert every time. */
+const noteId = (key) => { let h = 7; for (const c of key) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0; return (h & 0x7fffffff) || 1; };
+async function alertsAllowed(ask) {
+  try {
+    let p = (await nativeNotes.checkPermissions()).display;
+    if (ask && p !== 'granted' && p !== 'denied') p = (await nativeNotes.requestPermissions()).display;
+    return p === 'granted';
+  } catch { return false; }
+}
+async function setTripAlerts(on, fromSettings = false) {
+  if (on && !(await alertsAllowed(true))) {
+    on = false;
+    if (fromSettings) toast('Notifications are off for Trackside. Turn them on in your phone’s Settings, then try again.');
+  }
+  alertsOn = on;
+  store.set('tripAlerts', on);
+  $('#alertsToggle').checked = on;
+  tripAlerts();
+}
+async function tripAlerts() {
+  const A = window.TracksideAlerts;
+  if (!nativeNotes || !A) return;
+  if (alertsBusy) { alertsAgain = true; return; }
+  alertsBusy = true;
+  try {
+    const on = !!session && alertsOn === true && await alertsAllowed(false);
+    const now = Date.now(), want = {}, fire = [];
+    if (on) {
+      for (const p of myTrips) {
+        if (tripDone(p)) continue;
+        const live = liveForTrip(p);
+        const snap = live && A.snapshot({ stops: live.stops, lastIdx: live.lastIdx, cancelled: live.cancelled, reportedAt: live.posTime }, p);
+        if (snap) {
+          const r = A.evaluate(p, alertState[p.id], snap, now);
+          alertState[p.id] = r.state;
+          fire.push(...r.events);
+        }
+        for (const r of A.reminders(p, snap, now)) want[noteId(r.key)] = r;
+      }
+    }
+    for (const id of Object.keys(alertState)) if (!on || !myTrips.some((p) => p.id === id)) delete alertState[id];
+    store.set('alertState', alertState);
+    // Timed ones: take back those no longer wanted or whose time moved, then hand over the new ones. One whose time
+    // has passed has been shown, and stays in the notification list.
+    const drop = Object.keys(alertPending).filter((id) => !want[id] || Math.abs(want[id].at - alertPending[id]) >= 60000);
+    const cancel = drop.filter((id) => alertPending[id] > now);
+    if (cancel.length) await nativeNotes.cancel({ notifications: cancel.map((id) => ({ id: Number(id) })) });
+    for (const id of drop) delete alertPending[id];
+    const add = Object.entries(want).filter(([id]) => !(id in alertPending));
+    const note = (id, x) => ({ id: Number(id), title: x.title, body: x.body, extra: { trip: x.trip, kind: x.kind },
+      ...(x.at ? { schedule: { at: new Date(x.at), allowWhileIdle: true } } : {}) });
+    const batch = [...add.map(([id, x]) => note(id, x)), ...fire.map((x) => note(noteId(x.key), x))];
+    if (batch.length) await nativeNotes.schedule({ notifications: batch });
+    for (const [id, x] of add) alertPending[id] = x.at;
+    store.set('alertPending', alertPending);
+  } catch { /* alerts never get in the way of the page */ }
+  alertsBusy = false;
+  if (alertsAgain) { alertsAgain = false; tripAlerts(); }
+}
+/* Tapping an alert opens its trip's train, once the trains have loaded (the tap may have started the app). */
+function openAlertTrip() {
+  const p = alertOpen && myTrips.find((q) => q.id === alertOpen);
+  if (!p || (!lastOk && !lastError)) return;
+  alertOpen = null;
+  closeTopmost();
+  showTripTrain(p);
+}
+if (nativeNotes) {
+  $('#alertsRow').hidden = false;
+  $('#alertsToggle').checked = alertsOn === true;
+  nativeNotes.addListener('localNotificationActionPerformed', (a) => {
+    alertOpen = a?.notification?.extra?.trip || null;
+    openAlertTrip();
+  });
+}
 
 /* ---------------- friends: people who see each other's trips ---------------- */
 /* Friends find each other by username, never by email. Asking someone who already asked you makes you friends. */
@@ -7745,6 +7839,7 @@ async function refresh() {
     lastError = null;
     ingest(json);
     showError(null);
+    tripAlerts();
     loading = false;
     nextAt = Date.now() + REFRESH_S * 1000;
     setStatus('ok');
@@ -7756,6 +7851,7 @@ async function refresh() {
     setStatus('error');
     if (!topScreen()) renderTab();   // lists and Home show the last copy as offline
   }
+  openAlertTrip();
   loadStations();
 }
 

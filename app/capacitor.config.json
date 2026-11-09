@@ -10,6 +10,11 @@
     "SystemBars": {
       "insetsHandling": "native",
       "initialViewportFitValueHint": "cover"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_launcher_monochrome",
+      "iconColor": "#0071E3",
+      "presentationOptions": ["banner", "list", "sound"]
     }
   }
 }

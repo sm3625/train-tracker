@@ -6,7 +6,7 @@
 //
 // Reads GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH and DEPLOY_FILES from .env (git-ignored) or the
 // environment. The token is only sent to api.github.com and is never printed or uploaded. Files that contain the
-// token or the transit API keys (METROLINK_API_KEY, CALTRAIN_511_KEY) are refused.
+// token or any key in SECRET_KEYS below are refused.
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';

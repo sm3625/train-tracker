@@ -152,6 +152,13 @@ const TAKEN = {
   username_taken: usernameTaken,
   phone_taken: () => new ApiError(409, 'phone_taken', 'That number is already on another Trackside account.'),
 };
+/* A username or phone number someone else already has comes back as the message to show. */
+async function setProfile(store, userId, change) {
+  try { await store.setProfile(userId, change); } catch (err) {
+    if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
+    throw err;
+  }
+}
 
 async function limit(store, bucket, [max, windowMs], now) {
   if (await store.countAttempts(bucket, now - windowMs) >= max) {
@@ -439,10 +446,7 @@ export async function handleAccounts(req, env, ctx, url) {
       }
       if (b.phone === null || b.phone === '') change.phone = null;
       else if (b.phone !== undefined) throw new ApiError(400, 'verify_phone', 'Verify the number with a code first.');
-      try { await store.setProfile(user.id, change); } catch (err) {
-        if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
-        throw err;
-      }
+      await setProfile(store, user.id, change);
       return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
     }
     if (route === 'POST /v1/me/phone') {
@@ -455,10 +459,7 @@ export async function handleAccounts(req, env, ctx, url) {
       if (!sms) {
         // no texting service (SMS_PROVIDER empty): the number is saved as entered, without proof it's theirs
         await store.addAttempt('sms-user:' + user.id, now);
-        try { await store.setProfile(user.id, { phone: { number, hash: await phoneHash(number) } }); } catch (err) {
-          if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
-          throw err;
-        }
+        await setProfile(store, user.id, { phone: { number, hash: await phoneHash(number) } });
         return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
       }
       await limit(store, 'sms-phone:' + number, LIMITS.smsNumber, now);
@@ -479,10 +480,7 @@ export async function handleAccounts(req, env, ctx, url) {
         await store.addAttempt('sms-check:' + user.id, now);
         throw new ApiError(400, 'bad_code', 'That code is wrong or expired.');
       }
-      try { await store.setProfile(user.id, { phone: { number, hash: await phoneHash(number) } }); } catch (err) {
-        if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
-        throw err;
-      }
+      await setProfile(store, user.id, { phone: { number, hash: await phoneHash(number) } });
       return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
     }
     if (route === 'GET /v1/me/friends') {
