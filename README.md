@@ -88,11 +88,11 @@ Amtrak, VIA Rail and Brightline positions come from the unofficial [Amtraker API
 commuter railroads come from their own GTFS-Realtime feeds, listed in `worker/src/agencies.js` and in
 [worker/README.md](worker/README.md#railroads). Metrolink's terms limit its feed to internal use, so get Metrolink's
 permission (or hide it with `HIDDEN_PROVIDERS` in `index.html`) before publishing anything public with it. Check each
-railroad's terms before building anything commercial.
+railroad's terms before building anything commercial.  
 
 Trackside isn't affiliated with any railroad.
 
 
 ## TODO
-Fix MBTA
-Make a history section - average delay on a route
+Fix MBTA   
+Make a history section - average delay on a route. 

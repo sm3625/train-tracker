@@ -77,6 +77,21 @@ npm run dev          # serves the worker and the site on http://localhost:8787 u
 A copy of `index.html` opened from disk or `localhost` uses this local server automatically until
 `FEEDS_WORKER` is set.
 
+## Delay recorder
+
+Every minute (`[triggers]` in `wrangler.toml`), the worker records how late trains ran, for typical delays (see
+`../docs/delay-history-plan.md`). Each run reads only the most overdue railroads that fit in about 6 ms of CPU
+(`src/delays.js`), since Workers Free allows 10 ms a run. Finished trips go to the `runs` table in D1 and trips under
+way to `recorder_state` (`migrations/0008_delay_history.sql`). It stores timetable data only, nothing about people.
+
+```bash
+npm run dev -- --record    # the local server, plus a recorder run every minute into .accounts-dev.sqlite
+node local/survey-feeds.mjs 24 survey.json   # which railroads' feeds keep the times of stops already passed
+```
+
+After deploying, check each run's CPU time in Cloudflare's logs (Workers > trackside-feeds > Logs, or
+`npx wrangler tail`). A run near 10 ms means `RULES.cost` in `src/delays.js` needs raising for its source.
+
 ## Timetables
 
 The live feeds carry only trip and stop IDs. `src/schedules.json` maps them to line names, stations and

@@ -24,3 +24,5 @@ e2e/playwright-report/
 .vercel
 
 .claude
+# Delay history downloaded by worker/local/delay-report.mjs
+.delay-cache/

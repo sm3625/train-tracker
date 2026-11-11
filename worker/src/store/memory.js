@@ -15,6 +15,8 @@ export class MemoryStore {
     this.friendships = [];       // [{ requesterId, addresseeId, status, createdAt, acceptedAt }]
     this.pending = new Map();    // email -> pending sign-up
     this.feedback = [];          // [feedback], oldest first
+    this.runs = new Map();       // provider|num|date -> recorded trip
+    this.recorder = new Map();   // source -> { at, idle, state }
   }
 
   async createUser(u) {
@@ -132,4 +134,20 @@ export class MemoryStore {
   async countAttempts(bucket, since) { return this.attempts.filter((a) => a.bucket === bucket && a.at >= since).length; }
   async addAttempt(bucket, at) { this.attempts.push({ bucket, at }); }
   async deleteAttemptsBefore(time) { this.attempts = this.attempts.filter((a) => a.at >= time); }
+
+  async getRecorderReads() {
+    return Object.fromEntries([...this.recorder].map(([s, r]) => [s, { at: r.at, idle: r.idle }]));
+  }
+  async getRecorderState(source) { return copy(this.recorder.has(source) ? this.recorder.get(source).state : null); }
+  async saveRecorderRead(source, { at, idle, state }, runs) {
+    for (const r of runs) this.runs.set(`${r.provider}|${r.num}|${r.date}`, { ...copy(r), cancelled: !!r.cancelled, recordedAt: at });
+    this.recorder.set(source, { at, idle: !!idle, state: copy(state) });
+  }
+  async listTrainRuns(provider, num, dayType, sinceDate) {
+    return (await this.listRuns(sinceDate)).filter((r) => r.provider === provider && r.num === num && r.dayType === dayType);
+  }
+  async listRuns(sinceDate) {
+    return copy([...this.runs.values()].filter((r) => r.date >= sinceDate)
+      .sort((a, b) => a.provider.localeCompare(b.provider) || a.num.localeCompare(b.num) || a.date.localeCompare(b.date)));
+  }
 }

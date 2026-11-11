@@ -264,4 +264,23 @@ for (const [name, make] of Object.entries(ADAPTERS)) {
     assert.equal(await s.countAttempts('login-email:p1@example.com', 0), 1);
     assert.equal(await s.countAttempts('login-ip:1.2.3.4', 0), 1);
   });
+
+  test(`${name}: delay recorder state and runs`, async () => {
+    const s = make();
+    assert.deepEqual(await s.getRecorderReads(), {});
+    assert.equal(await s.getRecorderState('LI'), null);
+    const run = { provider: 'LIRR', num: '2034', date: '2026-11-09', dayType: 'wkd', cancelled: false, stops: [['NYK', 1000, null, 2, 'r']] };
+    const state = { trips: { 'LIRR|2035|2026-11-09': { num: '2035' } } };
+    await s.saveRecorderRead('LI', { at: 100, idle: false, state }, [run]);
+    await s.saveRecorderRead('amtraker', { at: 90, idle: true, state: { trips: {} } }, []);
+    assert.deepEqual(await s.getRecorderReads(), { LI: { at: 100, idle: false }, amtraker: { at: 90, idle: true } });
+    assert.deepEqual(await s.getRecorderState('LI'), state);
+    // a trip recorded twice keeps the later copy
+    await s.saveRecorderRead('LI', { at: 200, idle: false, state: { trips: {} } }, [{ ...run, stops: [['NYK', 1000, 1, 3, 'r']], cancelled: true }]);
+    assert.deepEqual(await s.listRuns('2026-11-01'), [{ ...run, stops: [['NYK', 1000, 1, 3, 'r']], cancelled: true, recordedAt: 200 }]);
+    assert.deepEqual(await s.listRuns('2026-11-10'), []);
+    assert.equal((await s.listTrainRuns(run.provider, run.num, run.dayType, '2026-11-01')).length, 1);
+    assert.deepEqual(await s.listTrainRuns(run.provider, run.num, run.dayType === 'wkd' ? 'sat' : 'wkd', '2026-11-01'), []);
+    assert.deepEqual(await s.getRecorderState('LI'), { trips: {} });
+  });
 }

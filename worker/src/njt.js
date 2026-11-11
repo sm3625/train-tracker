@@ -53,10 +53,13 @@ export async function njtFeed(env, endpoint, signal) {
     const res = await fetch(`${hostOf(env)}/api/GTFSRT/${endpoint}`, {
       method: 'POST', headers: { accept: '*/*' }, body: formOf({ token }), signal,
     });
-    if (!res.ok) throw new Error(`NJ Transit ${endpoint}: HTTP ${res.status}`);
+    // NJ sends its errors, "Invalid token." among them, as JSON with HTTP 500: read the body before the status
     const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes[0] !== JSON_START) return bytes;
-    const err = jsonOf(bytes).errorMessage || 'no feed';
+    if (bytes[0] !== JSON_START) {
+      if (!res.ok) throw new Error(`NJ Transit ${endpoint}: HTTP ${res.status}`);
+      return bytes;
+    }
+    const err = jsonOf(bytes).errorMessage || (res.ok ? 'no feed' : `HTTP ${res.status}`);
     if (attempt === 0 && /invalid token/i.test(err)) continue;
     throw new Error(`NJ Transit ${endpoint}: ${err}`);
   }

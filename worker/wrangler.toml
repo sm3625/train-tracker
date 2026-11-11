@@ -28,6 +28,11 @@ MAIL_FROM = "Trackside <noreply@example.com>"
 # Sign-up emails a 6-digit code whenever email can be sent (the provider's key set, MAIL_FROM a real sender), so
 # signing up never reveals which emails have accounts. Set EMAIL_VERIFY = "off" to make accounts without a code.
 
+# The delay recorder (src/delays.js): one small run a minute, reading the railroads most due. See
+# docs/delay-history-plan.md. Workers Free allows this; each run must stay under its 10 ms of CPU.
+[triggers]
+crons = ["* * * * *"]
+
 # Feed requests (/v1/trains, /v1/stations) per address per minute, counted by each Cloudflare location. An open page
 # asks about once a minute, so 120 leaves room for many people sharing one address (a phone network, a campus).
 # namespace_id is any number unique among this Cloudflare account's rate limiters.

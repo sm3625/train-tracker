@@ -224,4 +224,37 @@ export class SqlStore {
   async deleteAttemptsBefore(time) {
     await this.db.run('DELETE FROM attempts WHERE at < ?', [time]);
   }
+
+  async getRecorderReads() {
+    const rows = await this.db.all('SELECT source, read_at, idle FROM recorder_state');
+    return Object.fromEntries(rows.map((r) => [r.source, { at: Number(r.read_at), idle: !!Number(r.idle) }]));
+  }
+  async getRecorderState(source) {
+    const r = (await this.db.all('SELECT state FROM recorder_state WHERE source = ?', [source]))[0];
+    return r ? JSON.parse(r.state) : null;
+  }
+  async saveRecorderRead(source, { at, idle, state }, runs) {
+    await this.db.batch([
+      ...runs.map((r) => ({
+        sql: `INSERT INTO runs (provider, train_num, service_date, day_type, cancelled, stops, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT (provider, train_num, service_date) DO UPDATE SET day_type = excluded.day_type, cancelled = excluded.cancelled,
+              stops = excluded.stops, recorded_at = excluded.recorded_at`,
+        params: [r.provider, r.num, r.date, r.dayType, r.cancelled ? 1 : 0, JSON.stringify(r.stops), at],
+      })),
+      { sql: `INSERT INTO recorder_state (source, read_at, idle, state) VALUES (?, ?, ?, ?)
+              ON CONFLICT (source) DO UPDATE SET read_at = excluded.read_at, idle = excluded.idle, state = excluded.state`,
+        params: [source, at, idle ? 1 : 0, JSON.stringify(state)] },
+    ]);
+  }
+  async listTrainRuns(provider, num, dayType, sinceDate) {
+    const rows = await this.db.all(`SELECT * FROM runs WHERE provider = ? AND train_num = ? AND service_date >= ? AND day_type = ?
+      ORDER BY service_date`, [provider, num, sinceDate, dayType]);
+    return rows.map((r) => ({ provider: r.provider, num: r.train_num, date: r.service_date, dayType: r.day_type,
+      cancelled: !!Number(r.cancelled), stops: JSON.parse(r.stops), recordedAt: Number(r.recorded_at) }));
+  }
+  async listRuns(sinceDate) {
+    const rows = await this.db.all('SELECT * FROM runs WHERE service_date >= ? ORDER BY provider, train_num, service_date', [sinceDate]);
+    return rows.map((r) => ({ provider: r.provider, num: r.train_num, date: r.service_date, dayType: r.day_type,
+      cancelled: !!Number(r.cancelled), stops: JSON.parse(r.stops), recordedAt: Number(r.recorded_at) }));
+  }
 }

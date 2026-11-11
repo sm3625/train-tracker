@@ -4,8 +4,23 @@
     {
       "name": "trackside-dev",
       "runtimeExecutable": "env",
-      "runtimeArgs": ["PORT=8788", "node", "worker/dev.mjs"],
+      "runtimeArgs": [
+        "PORT=8788",
+        "node",
+        "worker/dev.mjs"
+      ],
       "port": 8788
+    },
+    {
+      "name": "trackside-history",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=8789",
+        "node",
+        "worker/dev.mjs",
+        "--history"
+      ],
+      "port": 8789
     }
   ]
 }

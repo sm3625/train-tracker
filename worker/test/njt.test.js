@@ -52,6 +52,37 @@ test('an invalid token is replaced once, then the feed is read', async () => {
   globalThis.fetch = realFetch;
 });
 
+test('an invalid token answered as HTTP 500, as NJ does, is replaced too', async () => {
+  const fake = fakeNj();
+  const fakeFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => (init.body.get('token') === 'stale'
+    ? Response.json({ errorMessage: 'Invalid token.' }, { status: 500 })
+    : fakeFetch(url, init));
+  const rows = [{ token: 'stale', fetched_at: Date.now() - 3600000 }];
+  const db = {
+    prepare: (sql) => ({
+      bind: (...args) => ({
+        first: async () => (sql.startsWith('SELECT') ? rows[0] : null),
+        run: async () => { rows[0] = { token: args[1], fetched_at: args[2] }; return {}; },
+      }),
+    }),
+  };
+  const { njtFeed } = await fresh();
+  assert.deepEqual([...(await njtFeed({ ...env, DB: db }, 'getVehiclePositions'))], [...OK_FEED]);
+  assert.equal(fake.logins.length, 1);
+  assert.equal(rows[0].token, 'tok1', 'the new token is saved for the next read');
+  globalThis.fetch = realFetch;
+});
+
+test('a server error that is not JSON is reported with its status', async () => {
+  fakeNj();
+  const fakeFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => (url.endsWith('/getTripUpdates') ? new Response('<html>down</html>', { status: 502 }) : fakeFetch(url, init));
+  const { njtFeed } = await fresh();
+  await assert.rejects(njtFeed(env, 'getTripUpdates'), /HTTP 502/);
+  globalThis.fetch = realFetch;
+});
+
 test('a feed that stays invalid gives up after one replacement', async () => {
   const fake = fakeNj({ feed: () => JSON.stringify({ errorMessage: 'Invalid token.' }) });
   const { njtFeed } = await fresh();

@@ -557,6 +557,10 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 }
 .pill .sw { width: 9px; height: 9px; border-radius: 50%; }
 .d-status span { font-size: 13px; color: var(--muted); }
+.d-hist { margin: 0; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
+.d-hist b { color: var(--ink); font-weight: 600; }
+.s-name small .usu { margin-left: 6px; }
+.s-name small .usu.late { color: var(--late-text); }
 .d-fresh { margin: 0; font-size: 13px; color: var(--muted); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 8px; }
 .d-fresh .fdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-top: calc(.725em - 3.5px); }
 .d-fresh.warn { color: var(--late-text); font-weight: 600; }
@@ -4904,6 +4908,51 @@ function yourStopHTML(t) {
   const leg = snapOf(t, p);
   return `<p class="d-yours sig-${esc(leg.sig)}">Your stop: <b>${esc(p.to.name)}</b> ${esc(clockZ(leg.arrive, p.to.tz))}, ${esc(fmtDelay(leg.delay).toLowerCase())}</p>`;
 }
+/* ---------------- delay history ----------------
+   How late a train usually is, from the worker's recorder (GET /v1/delays, worker/src/delays.js): the last 45 days of
+   this train on this kind of day (weekday, Saturday or Sunday), stop by stop. Fetched once per train and day type. */
+const delayHistory = new Map();   // 'provider|num|day' -> undefined while loading | null (none) | the answer
+const DAY_WORD = { wkd: 'weekday', sat: 'Saturday', sun: 'Sunday' };
+function dayTypeOf(t) {
+  const d = serviceDateOf(t);
+  if (!d) return '';
+  const w = new Date(d + 'T12:00:00Z').getUTCDay();
+  return w === 6 ? 'sat' : w === 0 ? 'sun' : 'wkd';
+}
+function historyOf(t) {
+  const day = FEEDS_API && dayTypeOf(t);
+  if (!day) return null;
+  const key = `${t.provider}|${t.num}|${day}`;
+  if (delayHistory.has(key)) return delayHistory.get(key);
+  delayHistory.set(key, undefined);
+  fetch(`${FEEDS_API}/v1/delays?${new URLSearchParams({ provider: t.provider, num: t.num, day })}`)
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    .then((h) => {
+      delayHistory.set(key, h && h.stats ? h : null);
+      if (h && h.stats && selectedId === t.id && topScreen() && topScreen().type === 'train') renderDetail();
+    });
+  return undefined;
+}
+/* "6 min late", "about 6 min late", "on time": a stop's median. */
+function usualText(st) {
+  const m = st.median;
+  return m <= 1 ? (st.estimated ? 'about on time' : 'on time') : `${st.estimated ? 'about ' : ''}${m} min late`;
+}
+/* The line under the train's status: the rider's stop when it's in their trips, the board's station when opened from
+   one, else the end of the line. */
+function historyHTML(t) {
+  const h = historyOf(t);
+  if (!h || t.cancelled) return '';
+  const under = nav[nav.length - 2], trip = tripOf(t);
+  const want = trip ? trip.to.code : under && under.type === 'station' ? under.code : null;
+  const stop = (want && t.stops.find((x) => x.code && canonCode(x.code) === canonCode(want) && h.stats.stops[x.code]))
+    || [...t.stops].reverse().find((x) => h.stats.stops[x.code]);
+  if (!stop) return '';
+  const st = h.stats.stops[stop.code], last = stop === t.stops[t.stops.length - 1];
+  const share = st.n < 10 ? `${Math.round(st.onTime * st.n)} of ${st.n}` : `${Math.round(st.onTime * 10)} in 10`;
+  return `<p class="d-hist">Usually ${last ? 'reaches' : 'leaves'} <b>${esc(stop.name || stop.code)}</b> ${esc(usualText(st))}`
+    + ` · on time ${share} ${DAY_WORD[h.day]} trips in the last ${h.days} days</p>`;
+}
 /* Opened from a station's board: that station first, since it's the one the rider asked about. Arrival or departure
    follows the board they came from. */
 function boardStopHTML(t, code) {
@@ -4976,6 +5025,7 @@ function renderDetail() {
   let prevDay = '', prevTz = '';
   const rows = [];
   const hideBefore = !showEarlier && t.lastIdx >= 3 ? t.lastIdx - 1 : 0;
+  const hist = historyOf(t);
   if (hideBefore > 0) rows.push(`<li class="more"><button type="button" id="earlier">Show ${hideBefore} earlier stop${hideBefore === 1 ? '' : 's'}</button></li>`);
   t.stops.forEach((s, i) => {
     const r = stopRow(t, s, i);
@@ -4994,6 +5044,8 @@ function renderDetail() {
     }
     const tags = (r.isNext ? `<span class="tag">${s.status === 'Station' ? 'At station' : 'Next'}</span>` : '')
       + (s.bus ? '<span class="tag bus">Bus</span>' : '');
+    const usual = hist && hist.stats.stops[s.code];
+    const usualEl = usual ? `<span class="usu${usual.median > 5 ? ' late' : ''}" title="Median over ${plural(usual.n, 'trip')}, last ${hist.days} days">usually ${esc(usualText(usual))}</span>` : '';
     const nameEl = stations.has(s.code) ? `<button type="button" class="s-link" data-code="${esc(s.code)}" title="Arrivals and departures at ${esc(s.name)}">${esc(s.name)}</button>` : `<b>${esc(s.name)}</b>`;
     const wdCell = wd ? `<span class="wd">${esc(wd)}</span>` : '';
     let actCell;
@@ -5003,7 +5055,7 @@ function renderDetail() {
     const here = under && under.type === 'station' && s.code && canonCode(s.code) === canonCode(under.code);   // the board's station
     rows.push(`<li class="stop ${r.done ? 'done' : 'ahead'}${r.isNext ? ' next' : ''}${r.last ? ' last' : ''}${here ? ' here' : ''}">`
       + `<span class="rail"><i></i></span>`
-      + `<div class="s-name">${nameEl}${tags}<small>${esc(codeLabel(s.code))}${tzNote ? `<span class="tz">${esc(tzNote)}</span>` : ''}${s.platform ? ', track ' + esc(s.platform) : ''}</small></div>`
+      + `<div class="s-name">${nameEl}${tags}<small>${esc(codeLabel(s.code))}${tzNote ? `<span class="tz">${esc(tzNote)}</span>` : ''}${s.platform ? ', track ' + esc(s.platform) : ''}${usualEl}</small></div>`
       + `<div class="s-t">${wdCell}<span class="k">${r.kind}</span>${esc(clock(r.sch, tz))}</div>`
       + actCell + `</li>`);
   });
@@ -5041,6 +5093,7 @@ function renderDetail() {
         <div class="d-status"><span class="pill"><span class="sw"></span>${esc(pillText)}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
         <p class="d-fresh${stale ? ' warn' : ''}"><span class="fdot"></span>${esc(freshTxt)}</p>
         ${yourStopHTML(t)}
+        ${historyHTML(t)}
       </section>
       <section id="dProg" aria-label="Route progress">${progHTML(t) || '<p class="note">Progress appears once stations load.</p>'}</section>
       <div class="d-actbar">

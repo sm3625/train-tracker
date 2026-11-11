@@ -55,6 +55,15 @@
      addAttempt(bucket, at)
      deleteAttemptsBefore(time)
 
+   The delay recorder's tables (src/delays.js), in the same database though nothing in them is about people:
+     getRecorderReads() -> { [source]: { at, idle } }         when each source was last read
+     getRecorderState(source) -> state | null                 the trips under way, as observe() left them
+     saveRecorderRead(source, { at, idle, state }, runs)      the new state and the trips that finished, together;
+                                                              run: { provider, num, date, dayType, cancelled, stops }.
+                                                              A trip recorded twice keeps the later copy
+     listRuns(sinceDate) -> [run + { recordedAt }]            trips from that service date on
+     listTrainRuns(provider, num, dayType, sinceDate) -> [run + { recordedAt }]   one train's, oldest first
+
    Adapters here: SQL databases through sql.js (Cloudflare D1, Turso, or Node's built-in SQLite for local
    runs), and an in-memory one. test/store.test.js runs the same checks against each of them. */
 import { SqlStore } from './sql.js';

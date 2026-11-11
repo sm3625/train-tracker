@@ -7,12 +7,17 @@
    GET /v1/stations  { code: { code, name, label, city, state, lat, lon } }
 
    It also serves Trackside accounts (/v1/auth/…, /v1/me…): see accounts.js.
+
+   Every minute (wrangler.toml [triggers]) it records how late trains ran, for typical delays: see recordDelays()
+   below, delays.js and docs/delay-history-plan.md.
 */
 import { decodeFeed } from './gtfsrt.js';
 import { corsHeaders, json } from './http.js';
 import { isAccountsPath, handleAccounts } from './accounts.js';
 import { AGENCIES, SECRET_KEYS } from './agencies.js';
 import { buildTrains, railFilter, feedSilence, GONE_MS } from './trains.js';
+import { due, observe, summarize, HISTORY } from './delays.js';
+import { storeFor } from './store/index.js';
 import SCHEDULES from './schedules.json' with { type: 'json' };
 
 const KEEP_STALE = 30 * 60;   // after an upstream error, keep serving the last good copy this long (seconds)
@@ -147,6 +152,76 @@ function stationList() {
   return out;
 }
 
+/* ---------------- delay recorder (scheduled) ----------------
+   Each run reads the one or two sources most due (delays.js due()) and keeps their trips under way in D1, which,
+   unlike the Cache API, every data centre sees. Workers Free allows 10 ms of CPU per run, so a railroad is read
+   from a build a visitor's request made in the last 90 s if there is one, and otherwise from its trip updates
+   alone: positions aren't needed to know how late a train is. */
+const AMTRAKER = 'https://api-v3.amtraker.com/v3/trains';
+const REUSE_BUILD_S = 90;
+
+async function recorderTrains(source, env, now, budget) {
+  if (source === 'amtraker') {
+    if (!spend(budget)) throw new Error('over this run\'s request limit');
+    const res = await fetch(AMTRAKER, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+    if (!res.ok) throw new Error(`Amtraker: HTTP ${res.status}`);
+    return Object.values(await res.json()).flat();
+  }
+  const a = AGENCIES.find((x) => x.id === source), sched = SCHEDULES[source];
+  const built = await sharedGet('built ' + a.id, budget);
+  if (built && built.age < REUSE_BUILD_S) return JSON.parse(built.body).trains;
+  const [kind, f] = a.trips ? ['trips', a.trips] : ['vehicles', a.vehicles];
+  const { bytes } = await feed(a.provider + ' ' + kind, f, a.auth, env, budget);
+  return buildTrains(a, sched, [decodeFeed(bytes, a.mixed ? railFilter(sched) : undefined)], now);
+}
+
+/* The sources the recorder can read: Amtraker, and every railroad with a timetable and its keys. */
+const recorderSources = (env) => ['amtraker', ...AGENCIES
+  .filter((a) => SCHEDULES[a.id] && [].concat(a.key || []).every((k) => env[k])).map((a) => a.id)];
+
+export async function recordDelays(env, now = Date.now()) {
+  const store = storeFor(env);
+  if (!store) return [];
+  const budget = { left: SUBREQUEST_BUDGET };
+  const done = [];
+  for (const source of due(recorderSources(env), await store.getRecorderReads(), now)) {
+    const state = await store.getRecorderState(source);
+    let trains;
+    try {
+      trains = await recorderTrains(source, env, now, budget);
+    } catch (err) {
+      // marked read all the same, so one railroad that's down doesn't take every turn from the others
+      console.error('recorder:', source, scrub(err.message, env));
+      await store.saveRecorderRead(source, { at: now, idle: false, state: state || { trips: {} } }, []);
+      done.push({ source, error: scrub(err.message, env) });
+      continue;
+    }
+    const r = observe(state, trains, now);
+    await store.saveRecorderRead(source, { at: now, idle: !r.running, state: r.state }, r.finished);
+    done.push({ source, trains: trains.length, finished: r.finished.length });
+  }
+  return done;
+}
+
+/* ---------------- delay history ---------------- */
+/* GET /v1/delays?provider=LIRR&num=2034&day=wkd: how late that train usually is, stop by stop, over the last 45 days
+   (summarize() in delays.js). null when it has too few trips. One indexed read of at most 45 rows. DELAYS_MIN_TRIPS
+   lowers the 8-trip minimum, for trying it locally on a few days' history. */
+async function delays(url, req, env) {
+  const provider = url.searchParams.get('provider') || '', num = url.searchParams.get('num') || '', day = url.searchParams.get('day');
+  if (!provider || provider.length > 40 || !num || num.length > 16 || !['wkd', 'sat', 'sun'].includes(day)) {
+    return json({ error: { code: 'bad_request', message: 'Needs provider, num and day (wkd, sat or sun).' } }, req, env, { 'Cache-Control': 'no-store' }, 400);
+  }
+  const store = storeFor(env);
+  if (!store) return json({ error: { code: 'unavailable', message: 'No delay history here.' } }, req, env, { 'Cache-Control': 'no-store' }, 503);
+  const since = new Date(Date.now() - HISTORY.days * 86400000).toISOString().slice(0, 10);
+  const runs = await store.listTrainRuns(provider, num, day, since);
+  const minTrips = Number(env.DELAYS_MIN_TRIPS) || HISTORY.minTrips;
+  const stats = summarize(runs, { minTrips });
+  return json({ provider, num, day, since, days: HISTORY.days, minTrips, onTimeMin: HISTORY.onTimeMin, trips: runs.length, stats },
+    req, env, { 'Cache-Control': 'public, max-age=3600' });
+}
+
 /* ---------------- HTTP ---------------- */
 /* Error text is passed to the page, so blank out the keys in case an error message ever echoes a URL. */
 function scrub(msg, env) {
@@ -168,7 +243,7 @@ export default {
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
     // per address, per Cloudflare location (wrangler.toml [[ratelimits]]). It spares the railroads' feeds and the
     // worker's CPU from one script hammering; the blocked request still counts toward the worker's daily requests.
-    if (env.FEEDS_LIMIT && (url.pathname === '/v1/trains' || url.pathname === '/v1/stations')) {
+    if (env.FEEDS_LIMIT && (url.pathname === '/v1/trains' || url.pathname === '/v1/stations' || url.pathname === '/v1/delays')) {
       const { success } = await env.FEEDS_LIMIT.limit({ key: req.headers.get('CF-Connecting-IP') || 'local' });
       if (!success) return json({ error: { code: 'rate_limited', message: 'Too many requests. Try again in a minute.' } }, req, env, { 'Retry-After': '60', 'Cache-Control': 'no-store' }, 429);
     }
@@ -176,6 +251,7 @@ export default {
     if (url.pathname === '/v1/stations') {
       return json(stationList(), req, env, { 'Cache-Control': 'public, max-age=86400' });
     }
+    if (url.pathname === '/v1/delays') return delays(url, req, env);
     if (url.pathname === '/v1/trains') {
       const now = Date.now();
       const result = {}, status = {};
@@ -191,5 +267,8 @@ export default {
     }
     if (url.pathname === '/') return new Response('Trackside feeds. See /v1/trains and /v1/stations.', { headers: { 'Content-Type': 'text/plain' } });
     return new Response('Not found', { status: 404 });
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(recordDelays(env, event.scheduledTime || Date.now()));
   },
 };
