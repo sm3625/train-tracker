@@ -14,8 +14,14 @@ ALLOWED_ORIGINS = "https://sm3625.github.io,https://trackside-pearl.vercel.app,c
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN) or "memory" (testing only: lost on restart). See README.md.
 ACCOUNTS_DB = "d1"
 
-# Password-reset emails link here.
+# Password-reset emails link here, and trip share links (src/share.js) forward browsers here.
 SITE_URL = "https://sm3625.github.io/train-tracker/"
+# Trip share links open the apps instead of the browser once these name them (src/share.js). iOS: TEAMID.bundle id,
+# from the Xcode project. Android: the Play signing certificate's SHA-256 (Play Console > App integrity), filled in when
+# the app is on Google Play. Both apps also declare the link address (app/README.md).
+APPLE_APP_IDS = "KU7G7BJ878.io.github.sm3625.trackside"
+ANDROID_PACKAGE = "io.github.sm3625.trackside"
+ANDROID_CERT_SHA256 = ""
 # The email service for reset links and sign-up codes: "resend" or "brevo", with its key as a Worker secret
 # (RESEND_API_KEY or BREVO_API_KEY, uploaded by `npm run deploy` from ../.env). Left empty, as now, no email is sent:
 # password reset is off and sign-up makes accounts without a code. Turning it on also needs RESET_ON in index.html.

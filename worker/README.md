@@ -265,6 +265,15 @@ train number and the date the train leaves its first station.
 Trips stay in the account after they're over: they're the person's record of rides, and the site's passport is
 built from them. So only upcoming trips count toward the limit of 200, with up to 5,000 kept in all.
 
+## Trip share links
+
+`POST /v1/me/trips/:id/share` gives a saved trip a link, `https://<worker>/s/<token>`, that anyone can open without
+signing in. The token is 128 random bits, one per trip, and stops working when the trip is removed. A browser gets a
+page with a preview (for iMessage and the like) that forwards to the site at `#share-<token>`; the site reads
+`GET /v1/shares/<token>`. The worker also serves `/.well-known/apple-app-site-association` and
+`/.well-known/assetlinks.json`, so the iOS and Android apps open the links themselves (`APPLE_APP_IDS`,
+`ANDROID_CERT_SHA256` in `wrangler.toml`; see `../app/README.md`). All in `src/share.js`.
+
 ## Friends
 
 People add each other by username or phone number (the Friends button at the top), and in the iOS and Android apps

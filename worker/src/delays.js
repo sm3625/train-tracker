@@ -126,7 +126,8 @@ export const toRow = (trip) => ({
 /* ---------------- reading the history back ---------------- */
 
 export const HISTORY = {
-  days: 45,        // the window
+  days: 45,        // the window for weekday trains: about 32 trips
+  weekendDays: 63, // Saturdays and Sundays: 45 days holds only 6 or 7 of each, short of minTrips; 63 always holds 9
   minTrips: 8,     // fewer timed trips than this is an anecdote, and nothing is shown
   onTimeMin: 5,    // 5 minutes late or less is on time, as on the page (sig())
 };

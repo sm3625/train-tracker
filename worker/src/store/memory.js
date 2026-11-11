@@ -11,6 +11,7 @@ export class MemoryStore {
     this.data = new Map();       // userId -> Map(key -> { value, updatedAt })
     this.attempts = [];          // [{ bucket, at }]
     this.trips = new Map();      // id -> trip
+    this.shares = new Map();     // token -> tripId
     this.resets = new Map();     // tokenHash -> reset token
     this.friendships = [];       // [{ requesterId, addresseeId, status, createdAt, acceptedAt }]
     this.pending = new Map();    // email -> pending sign-up
@@ -49,6 +50,7 @@ export class MemoryStore {
     this.data.delete(id);
     for (const [k, s] of this.sessions) if (s.userId === id) this.sessions.delete(k);
     for (const [k, t] of this.trips) if (t.userId === id) this.trips.delete(k);
+    for (const [k, tripId] of this.shares) if (!this.trips.has(tripId)) this.shares.delete(k);
     for (const [k, r] of this.resets) if (r.userId === id) this.resets.delete(k);
     this.feedback = this.feedback.filter((f) => f.userId !== id);
   }
@@ -79,7 +81,19 @@ export class MemoryStore {
   async deleteTrip(userId, id) {
     const t = this.trips.get(id);
     if (!t || t.userId !== userId) return false;
+    for (const [k, tripId] of this.shares) if (tripId === id) this.shares.delete(k);
     return this.trips.delete(id);
+  }
+  async shareTrip(userId, tripId, token) {
+    const t = this.trips.get(tripId);
+    if (!t || t.userId !== userId) return null;
+    for (const [k, id] of this.shares) if (id === tripId) return k;
+    this.shares.set(token, tripId);
+    return token;
+  }
+  async getSharedTrip(token) {
+    const id = this.shares.get(token);
+    return id && this.trips.has(id) ? copy(this.trips.get(id)) : null;
   }
 
   async getFriendship(a, b) {

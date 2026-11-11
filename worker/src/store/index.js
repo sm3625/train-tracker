@@ -27,7 +27,10 @@
 
      listTrips(userId) -> [trip]                              trip: { id, userId, provider, num, date, departAt, data, createdAt }
      addTrip(trip)                                            throws StoreError('trip_exists') for the same train on the same day
-     deleteTrip(userId, id) -> boolean                        false if there was no such trip
+     deleteTrip(userId, id) -> boolean                        false if there was no such trip; its share link goes too
+     shareTrip(userId, tripId, token, at) -> token | null     the trip's share token: the one it has, else this new
+                                                              one; null if the trip isn't that user's
+     getSharedTrip(token) -> trip | null                      the trip a share link shows
 
      getFriendship(a, b) -> friendship | null                 either direction. friendship: { requesterId, addresseeId,
                                                                 status: 'pending' | 'accepted', createdAt, acceptedAt }

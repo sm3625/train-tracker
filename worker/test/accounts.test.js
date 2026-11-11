@@ -198,6 +198,55 @@ test('trips', async () => {
   assert.deepEqual((await call('GET', '/v1/me/trips', { token })).body.trips.map((t) => t.num), ['7']);
 });
 
+test('a trip shared as a link: anyone with it can read it, in the page or the apps; it goes with the trip', async () => {
+  const { env, call } = server();
+  const token = (await call('POST', '/v1/auth/signup', { body: { ...creds, username: 'zephyrfan' } })).body.token;
+  const other = (await call('POST', '/v1/auth/signup', { body: { email: 'b@example.com', password: 'another-long-one' } })).body.token;
+  const day = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const at = Date.parse(day + 'T19:00:00Z');
+  const trip = (await call('POST', '/v1/me/trips', { token, body: { provider: 'Amtrak', num: '5', date: day, route: 'California Zephyr',
+    from: { code: 'CHI', name: 'Chicago Union Station', at, tz: 'America/Chicago' },
+    to: { code: 'DEN', name: 'Denver', at: at + 18 * 3600000, tz: 'America/Denver' } } })).body.trip;
+
+  assert.equal((await call('POST', `/v1/me/trips/${trip.id}/share`)).status, 401);
+  assert.equal((await call('POST', `/v1/me/trips/${trip.id}/share`, { token: other })).status, 404);   // not theirs
+  const shared = await call('POST', `/v1/me/trips/${trip.id}/share`, { token });
+  assert.equal(shared.status, 200);
+  assert.match(shared.body.token, /^[\w-]{22}$/);
+  assert.equal(shared.body.url, 'https://w.example/s/' + shared.body.token);
+  assert.equal((await call('POST', `/v1/me/trips/${trip.id}/share`, { token })).body.token, shared.body.token);   // one link per trip
+
+  // no sign-in needed to read it, and nothing about the account beyond the username
+  const read = await call('GET', '/v1/shares/' + shared.body.token);
+  assert.equal(read.status, 200);
+  assert.equal(read.body.username, 'zephyrfan');
+  assert.deepEqual(Object.keys(read.body.trip).sort(), ['date', 'from', 'num', 'provider', 'route', 'to']);
+  assert.equal(read.body.trip.to.name, 'Denver');
+  assert.equal((await call('GET', '/v1/shares/not-a-real-token-at-all')).status, 404);
+
+  // the link itself: a preview page that forwards browsers to the site
+  const page = await worker.fetch(new Request('https://w.example/s/' + shared.body.token), env, { waitUntil() {} });
+  const html = await page.text();
+  assert.equal(page.status, 200);
+  assert.match(html, /<meta property="og:title" content="Amtrak 5: Chicago Union Station to Denver">/);
+  assert.match(html, /@zephyrfan’s trip/);
+  assert.ok(html.includes('https://shamit2008.github.io/train-tracker/#share-' + shared.body.token));
+
+  // the apps' association files, only once the apps are named
+  const wk = (p, e = env) => worker.fetch(new Request('https://w.example/.well-known/' + p), e, { waitUntil() {} });
+  assert.equal((await wk('apple-app-site-association')).status, 404);
+  const aasa = await (await wk('apple-app-site-association', { ...env, APPLE_APP_IDS: 'TEAM.io.example.app' })).json();
+  assert.deepEqual(aasa.applinks.details[0], { appIDs: ['TEAM.io.example.app'], components: [{ '/': '/s/*', comment: 'trip share links' }] });
+  const links = await (await wk('assetlinks.json', { ...env, ANDROID_CERT_SHA256: 'AA:BB' })).json();
+  assert.equal(links[0].target.package_name, 'io.github.sm3625.trackside');
+  assert.deepEqual(links[0].target.sha256_cert_fingerprints, ['AA:BB']);
+
+  // removing the trip ends the link
+  await call('DELETE', '/v1/me/trips/' + trip.id, { token });
+  assert.equal((await call('GET', '/v1/shares/' + shared.body.token)).status, 404);
+  assert.equal((await worker.fetch(new Request('https://w.example/s/' + shared.body.token), env, { waitUntil() {} })).status, 404);
+});
+
 test('past trips are kept and don’t count toward the limit', async () => {
   const { call } = server();
   const token = (await call('POST', '/v1/auth/signup', { body: creds })).body.token;

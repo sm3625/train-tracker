@@ -30,7 +30,7 @@ const env = {
   ACCOUNTS_STORE: new SqlStore(db),
   MAIL_PROVIDER: 'log',
   SMS_PROVIDER: 'log',   // phone codes are printed here, not texted
-  SITE_URL: process.env.SITE_URL || 'http://localhost:8000/',   // where you serve index.html locally
+  SITE_URL: process.env.SITE_URL,   // set below to this server's own address unless given
 };
 try {
   for (const line of (await readFile(path.join(dir, '..', '.env'), 'utf8')).split(/\r?\n/)) {
@@ -41,6 +41,7 @@ try {
 for (const k of SECRET_KEYS) if (process.env[k]) env[k] = process.env[k];
 
 const port = Number(process.env.PORT) || 8787;
+if (!process.env.SITE_URL) env.SITE_URL = `http://localhost:${port}/`;   // this server serves the site too
 
 /* The local account and a session for it, made fresh each start (the session lasts as the worker's do). */
 let guest = null;

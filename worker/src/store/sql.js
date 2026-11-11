@@ -78,6 +78,7 @@ export class SqlStore {
       { sql: 'DELETE FROM sessions WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM user_data WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM trips WHERE user_id = ?', params: [id] },
+      { sql: 'DELETE FROM trip_shares WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM reset_tokens WHERE user_id = ?', params: [id] },
       { sql: 'DELETE FROM friendships WHERE requester_id = ? OR addressee_id = ?', params: [id, id] },
       { sql: 'DELETE FROM profiles WHERE user_id = ?', params: [id] },
@@ -134,7 +135,20 @@ export class SqlStore {
     }
   }
   async deleteTrip(userId, id) {
-    return (await this.db.run('DELETE FROM trips WHERE user_id = ? AND id = ?', [userId, id])).changes > 0;
+    const gone = (await this.db.run('DELETE FROM trips WHERE user_id = ? AND id = ?', [userId, id])).changes > 0;
+    if (gone) await this.db.run('DELETE FROM trip_shares WHERE trip_id = ?', [id]);
+    return gone;
+  }
+  async shareTrip(userId, tripId, token, at) {
+    const mine = await this.db.all('SELECT id FROM trips WHERE user_id = ? AND id = ?', [userId, tripId]);
+    if (!mine.length) return null;
+    await this.db.run('INSERT INTO trip_shares (token, trip_id, user_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (trip_id) DO NOTHING',
+      [token, tripId, userId, at]);
+    return (await this.db.all('SELECT token FROM trip_shares WHERE trip_id = ?', [tripId]))[0].token;
+  }
+  async getSharedTrip(token) {
+    const r = (await this.db.all('SELECT t.* FROM trip_shares s JOIN trips t ON t.id = s.trip_id WHERE s.token = ?', [token]))[0];
+    return r ? tripRow(r) : null;
   }
 
   async getFriendship(a, b) {

@@ -4112,7 +4112,8 @@ const scrollMem = new Map();
 const topScreen = () => nav[nav.length - 1] || null;
 const screenKey = (s) => (s ? s.type + ':' + (s.id || s.code) : 'tab:' + tab);
 /* A screen's link: #t-<train>, #s-<station>, #trip-<saved trip> */
-const screenHash = (s) => (s.type === 'train' ? 't-' + encodeURIComponent(s.id) : s.type === 'trip' ? 'trip-' + encodeURIComponent(s.id) : 's-' + encodeURIComponent(s.code));
+const screenHash = (s) => (s.type === 'train' ? 't-' + encodeURIComponent(s.id)
+  : s.type === 'trip' ? (s.share ? 'share-' + encodeURIComponent(s.share) : 'trip-' + encodeURIComponent(s.id)) : 's-' + encodeURIComponent(s.code));
 function renderScreen(s) {
   if (s.type === 'train') renderDetail();
   else if (s.type === 'trip') renderTripScreen();
@@ -4999,11 +5000,12 @@ function historyHTML(t) {
 /* ---------------- a saved trip that isn't running: what to expect ----------------
    Opened from a trip card when the train isn't in the live feed yet (or any more): the two stops with their times and
    how late the train usually is there, the stops between from the timetable, and the route on the map. */
-function openTrip(p) {
+function openTrip(p, share = null) {
+  const id = share ? 'share-' + share : p.id;
   const cur = topScreen();
-  if (cur && cur.type === 'trip' && cur.id === p.id) return;
+  if (cur && cur.type === 'trip' && cur.id === id) return;
   rememberScroll();
-  nav.push({ type: 'trip', id: p.id, trip: p });
+  nav.push({ type: 'trip', id, trip: p, share });
   if (following) setFollow(false);
   tripFit = true;
   showScreen({ reset: true });
@@ -5011,6 +5013,35 @@ function openTrip(p) {
   if (!tt) loadTimetables().then(() => { if (topScreen() && topScreen().type === 'trip') { renderTripScreen(); drawPassportMap(); } }).catch(() => {});
 }
 let tripFit = false;   // fit the map to the trip's route the next time it's drawn
+
+/* ---------------- sharing a trip as a link ----------------
+   The worker makes the link (POST /v1/me/trips/:id/share): https://<worker>/s/<token>. Anyone can open it, signed in or
+   not. In a browser it forwards to this page at #share-<token>; with the app installed, iOS and Android open the app,
+   which gets the address from appUrlOpen (below). See worker/src/share.js. */
+const shareUrls = new Map();   // trip id -> link
+async function shareTrip(p) {
+  try {
+    let url = shareUrls.get(p.id);
+    if (!url) { url = (await api('POST', `/v1/me/trips/${encodeURIComponent(p.id)}/share`)).url; shareUrls.set(p.id, url); }
+    const live = liveForTrip(p);
+    const what = `train ${p.num} from ${p.from.name} to ${p.to.name}`;
+    await shareLink(url, live ? `I’m on ${what}. Follow along on Trackside` : `I’m taking ${what} ${dayPhrase(p.from.at, p.from.tz)}. Follow along on Trackside`);
+  } catch (ex) { toast(ex.message, 5000); }
+}
+/* Opens a shared trip from its token: the trip page, read-only, with whose it is. */
+async function openShare(token) {
+  try {
+    const r = await fetch(`${FEEDS_API}/v1/shares/${encodeURIComponent(token)}`);
+    const b = await r.json().catch(() => ({}));
+    if (!r.ok) { toast((b.error && b.error.message) || 'This trip link didn’t open.', 6000); return; }
+    // your own trip, shared back to you, opens as yours
+    const own = myTrips.find((q) => q.provider === b.trip.provider && q.num === b.trip.num && q.date === b.trip.date);
+    if (own) openTrip(own);
+    else openTrip({ ...b.trip, username: b.username }, token);
+  } catch { toast('This trip link didn’t open. Check your connection.', 6000); }
+}
+/* A share link's address (https://<worker>/s/<token>, as the app receives it), or null if it isn't one. */
+const shareTokenOf = (url) => { const m = /\/s\/([A-Za-z0-9_-]{16,64})(?:[?#]|$)/.exec(String(url || '')); return m ? m[1] : null; };
 /* The trip's stops from the timetable, from the rider's station to theirs, with times; just the two without it. */
 function tripStops(p) {
   const two = [{ code: p.from.code, name: p.from.name, tz: p.from.tz, arr: p.from.at, dep: p.from.at },
@@ -5096,6 +5127,8 @@ function renderTripScreen() {
       <div class="d-actbar">
         <button type="button" class="btn" id="tpMap">${ICON.map}Show route</button>
         ${live ? '<button type="button" class="btn primary" id="tpLive">Track live</button>' : ''}
+        ${mine && p.to.at > Date.now() ? `<button type="button" class="btn" id="tpShare">${ICON.share}Share trip</button>` : ''}
+        ${!mine && scr.share && session && !myTrips.some((q) => q.provider === p.provider && q.num === p.num && q.date === p.date) && p.to.at > Date.now() ? '<button type="button" class="btn" id="tpAdd">Add to my trips</button>' : ''}
         ${mine ? '<button type="button" class="btn" id="tpRemove">Remove trip</button>' : ''}
       </div>
       <section class="tp-card" aria-label="Typical delays"><h3>Typical delays</h3>${typical}</section>
@@ -5110,6 +5143,13 @@ function renderTripScreen() {
   $('#tpMap').onclick = () => { tripFit = true; drawPassportMap(); if (mqMobile.matches) setSheet('collapsed'); };
   const lv = $('#tpLive');
   if (lv) lv.onclick = () => openTrain(live.id, { pan: true });
+  const sh = $('#tpShare');
+  if (sh) sh.onclick = () => shareTrip(p);
+  const add = $('#tpAdd');
+  if (add) add.onclick = async () => {
+    try { await saveTrip({ provider: p.provider, num: p.num, date: p.date, route: p.route, from: p.from, to: p.to }); toast(`Added train ${p.num} to your trips.`, 3500); renderTripScreen(); }
+    catch (ex) { toast(ex.message, 5000); }
+  };
   const rm = $('#tpRemove');
   if (rm) rm.onclick = async () => {
     try { await dropTrip(p.id); toast(`Removed train ${p.num} from your trips.`, 3500); goBack(); }
@@ -5291,7 +5331,7 @@ function renderDetail() {
   $('#center').onclick = () => { setFollow(false); panTo(t, true); if (mqMobile.matches) setSheet('collapsed'); };
   $('#follow').onclick = () => { setFollow(!following); if (following && mqMobile.matches) setSheet('collapsed'); };
   $('#favT').onclick = () => { toggleFavTrain(t); renderDetail(); };
-  $('#shareT').onclick = () => shareLink(baseUrl() + '#t-' + encodeURIComponent(t.id), `Train ${t.num} ${t.route} on Trackside`);
+  $('#shareT').onclick = () => (tripOf(t) ? shareTrip(tripOf(t)) : shareLink(baseUrl() + '#t-' + encodeURIComponent(t.id), `Train ${t.num} ${t.route} on Trackside`));
   $('#compareBtn').onclick = () => {
     compareId = compareId === t.id ? null : t.id;
     if (compareId) toast(`Train ${t.num} pinned. Open another to compare.`, 4500);
@@ -7139,7 +7179,7 @@ function heroHTML(p) {
     + `<div class="hero-title">${esc(p.num)} ${esc(p.route)}</div>`
     + `<div class="hero-leg">${esc(p.from.name)} ${esc(clockZ(p.from.at, p.from.tz))} → ${esc(p.to.name)} ${esc(clockZ(p.to.at, p.to.tz))}${plusDays(p.from, p.to)}</div>`;
   const acts = (track) => `<div class="hero-acts">${track ? '<button type="button" class="btn primary" data-hero="track">Track train</button>' : '<button type="button" class="btn primary" data-hero="details">Trip details</button>'}`
-    + `${live ? '<button type="button" class="btn" data-hero="share">Share</button>' : ''}<button type="button" class="btn" data-hero="trips">All trips</button></div>`;
+    + '<button type="button" class="btn" data-hero="share">Share</button><button type="button" class="btn" data-hero="trips">All trips</button></div>';
   if (!snap) {
     return `<div class="hero">${head}<p class="hero-status">Scheduled. Live once running.</p>`
       + `<p class="hero-fresh">Leaves ${esc(p.from.name)} ${esc(p.from.at - Date.now() < 86400000 ? relTime(p.from.at) : dayPhrase(p.from.at, p.from.tz) + ' at ' + clockZ(p.from.at, p.from.tz))}.</p>${acts(false)}</div>`;
@@ -7204,7 +7244,7 @@ $('#homeHero').addEventListener('click', (e) => {
   switch (b.dataset.hero) {
     case 'track': if (live) openTrain(live.id, { pan: true }); break;
     case 'details': if (p) openTrip(p); break;
-    case 'share': if (live) shareLink(baseUrl() + '#t-' + encodeURIComponent(live.id), `Train ${live.num} ${live.route} on Trackside`); break;
+    case 'share': if (p) shareTrip(p); break;
     case 'trips': setTab('track'); break;
     case 'explore': setTab('explore'); break;
     case 'plan': openPlan(); break;
@@ -7839,6 +7879,13 @@ document.addEventListener('keydown', (e) => {
 /* Android's back button, in the app: back through dialogs and screens, then out of the app, as other apps do. */
 const nativeApp = nativePlugin('App');
 if (nativeApp) nativeApp.addListener('backButton', () => { if (!closeTopmost()) nativeApp.minimizeApp(); });
+/* A trip share link the phone handed to the app: iOS and Android open the app for https://<worker>/s/<token> once
+   the worker lists it (worker/src/share.js) and the app claims the address (app/README.md). */
+if (nativeApp) {
+  const fromLink = ({ url } = {}) => { const tok = shareTokenOf(url); if (tok) { pendingHash = 'share-' + tok; resolveHash(); } };
+  nativeApp.addListener('appUrlOpen', fromLink);
+  nativeApp.getLaunchUrl().then(fromLink).catch(() => {});
+}
 
 /* ---------------- deep links ---------------- */
 function resolveHash() {
@@ -7853,6 +7900,9 @@ function resolveHash() {
     const alt = liveFor(id.split('-')[0])[0];
     if (alt) { openTrain(alt.id, { pan: true, zoomIn: true }); toast(`Showing train ${alt.num}’s current run.`); }
     else toast(`Train ${id.split('-')[0]} isn’t in the live feed.`);
+  } else if (h.startsWith('share-')) {
+    pendingHash = null;
+    openShare(h.slice(6));
   } else if (h.startsWith('trip-')) {
     pendingHash = null;
     const p = myTrips.find((q) => q.id === h.slice(5));

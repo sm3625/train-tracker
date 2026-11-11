@@ -67,5 +67,6 @@ test('GET /v1/delays: one train\'s history, or null with too few trips', async (
   assert.equal(body.stats, null);   // 1 trip, 8 needed
   body = await (await ask(`provider=LIRR&num=2034&day=${dt}`, { ...env, DELAYS_MIN_TRIPS: '1' })).json();
   assert.deepEqual(body.stats.stops.B, { median: 6, p90: 6, onTime: 0, n: 1, estimated: false });
+  assert.equal(body.days, dt === 'wkd' ? 45 : 63);
   assert.equal((await ask('provider=LIRR&num=2034&day=mon')).status, 400);
 });

@@ -61,6 +61,25 @@ The iOS app loads its page from `capacitor://localhost` and the Android app from
 `ALLOWED_ORIGINS` in `../worker/wrangler.toml`, and `npm test` in `worker/` fails if either goes missing. Without them
 the app shows only Amtrak, VIA and Brightline: the commuter railroads come from the worker.
 
+## Trip share links open the app
+
+A shared trip's link is on the worker, `https://trackside-feeds.trackside-feeds.workers.dev/s/<token>`
+(`../worker/src/share.js`). Without the app it opens the website. With it, the phone opens the app instead, and the
+page opens the trip from Capacitor's `appUrlOpen` event (`openShare` in `../index.html`). Each side has to vouch for
+the other:
+
+- **iOS:** `ios/App/App/App.entitlements` claims `applinks:trackside-feeds.trackside-feeds.workers.dev`, and the worker
+  serves `/.well-known/apple-app-site-association` naming `KU7G7BJ878.io.github.sm3625.trackside` (`APPLE_APP_IDS` in
+  `../worker/wrangler.toml`). The App ID needs the Associated Domains capability: Xcode turns it on when it signs with
+  automatic signing; otherwise tick it under Identifiers on developer.apple.com. Apple reads the file through its own
+  CDN, which can take a day after a change. Test on a phone by long-pressing a link in Notes: "Open in Trackside".
+- **Android:** `AndroidManifest.xml` claims the `/s/` links (`autoVerify`), and the worker serves
+  `/.well-known/assetlinks.json` once `ANDROID_CERT_SHA256` in `../worker/wrangler.toml` holds the app's signing
+  certificate fingerprint: Play Console > Test and release > App integrity > App signing key certificate (SHA-256).
+  Until then Android shows the browser.
+- **Moving the links** to another address (a custom domain): set `SHARE_URL` on the worker, and change the domain in
+  both files above.
+
 ## Before releasing to the App Store or Google Play
 
 - **The app id**, `io.github.sm3625.trackside` (in `capacitor.config.json`), can't be changed once an app is published.

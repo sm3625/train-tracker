@@ -39,3 +39,36 @@ test('a trip ahead opens with its times, typical delays and route; Back returns 
   await expect(page.locator('#mtList [data-trip]')).toHaveCount(1);
   await expect(page.locator('.passport-lines .line')).toHaveCount(0);
 });
+
+test('a trip shared as a link opens for someone signed out, read-only, with whose it is', async ({ page, browser }) => {
+  await openSite(page);
+  await signUp(page);
+  const at = RECORDED_AT.getTime() + 30 * H;
+  const url = await page.evaluate(async (trip) => {
+    const { token } = JSON.parse(localStorage.getItem('trackside:session'));
+    const h = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const saved = await (await fetch('http://localhost:8787/v1/me/trips', { method: 'POST', headers: h, body: JSON.stringify(trip) })).json();
+    return (await (await fetch(`http://localhost:8787/v1/me/trips/${saved.trip.id}/share`, { method: 'POST', headers: h })).json()).url;
+  }, { provider: 'Amtrak', num: '183', route: 'Northeast Regional', date: new Date(at - 5 * H).toISOString().slice(0, 10),
+    from: { code: 'NYP', name: 'New York Penn', tz: 'America/New_York', at },
+    to: { code: 'WAS', name: 'Washington Union', tz: 'America/New_York', at: at + 3.5 * H } });
+  expect(url).toMatch(/^http:\/\/localhost:8787\/s\/[\w-]{22}$/);
+
+  // the owner's trip page offers the link
+  await page.reload();
+  await openSheet(page);
+  await page.locator('#tab-track').click();
+  await page.locator('#mtList [data-trip]').first().click();
+  await expect(page.locator('#tpShare')).toBeVisible();
+
+  // someone else, signed out, follows it (the link page forwards browsers to the site at #share-<token>)
+  const other = await browser.newPage();
+  await openSite(other);
+  await other.evaluate((h) => { location.hash = h; }, 'share-' + url.split('/s/')[1]);
+  const trip = other.locator('#trip');
+  await expect(trip).toBeVisible();
+  await expect(trip.locator('.tp-head h2')).toHaveText('New York Penn to Washington Union');
+  await expect(trip.locator('.tp-head p')).toContainText('’s trip');
+  await expect(trip.locator('#tpShare, #tpRemove')).toHaveCount(0);
+  await other.close();
+});

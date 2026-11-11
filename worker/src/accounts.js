@@ -19,6 +19,8 @@
    GET    /v1/me/trips                                        -> { trips }        (soonest first)
    POST   /v1/me/trips        { provider, num, date, route, from, to }  -> 201 { trip }
    DELETE /v1/me/trips/:id                                    -> 204
+   POST   /v1/me/trips/:id/share                              -> { token, url }   (a link anyone can open; share.js)
+   GET    /v1/shares/:token                                   -> { trip, username }   (no sign-in: the link is the key)
    PUT    /v1/me/profile      { username?, phone: null? }    -> { user }         (phone null removes the number)
    POST   /v1/me/phone        { phone }                      -> 202              (texts a code to the number, E.164)
                                                               -> { user }         (no texting service: saved without a code)
@@ -48,6 +50,7 @@ import { mailerFor } from './mail.js';
 import { verifierFor } from './sms.js';
 import { checkHuman } from './turnstile.js';
 import { json, corsHeaders } from './http.js';
+import { newShareToken, shareUrl, sharedTrip } from './share.js';
 import { PROVIDERS as FEED_PROVIDERS } from './agencies.js';
 
 const SESSION_MS = 30 * 86400000;
@@ -247,7 +250,7 @@ async function sendReset(store, mailer, env, user, now) {
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /* ---------------- routes ---------------- */
-export const isAccountsPath = (p) => p.startsWith('/v1/auth/') || p === '/v1/me' || p.startsWith('/v1/me/') || p === '/v1/feedback';
+export const isAccountsPath = (p) => p.startsWith('/v1/auth/') || p === '/v1/me' || p.startsWith('/v1/me/') || p === '/v1/feedback' || p.startsWith('/v1/shares/');
 
 export async function handleAccounts(req, env, ctx, url) {
   const store = storeFor(env);
@@ -429,6 +432,19 @@ export async function handleAccounts(req, env, ctx, url) {
         throw err;
       }
       return json({ trip: publicTrip(trip) }, req, env, noStore, 201);
+    }
+    const share = req.method === 'POST' && /^\/v1\/me\/trips\/([\w-]{1,64})\/share$/.exec(url.pathname);
+    if (share) {
+      const { user } = await signedIn(req, store, now);
+      const token = await store.shareTrip(user.id, share[1], newShareToken(), now);
+      if (!token) throw new ApiError(404, 'not_found', 'That trip isn’t in your account.');
+      return json({ token, url: shareUrl(env, url.origin, token) }, req, env, noStore);
+    }
+    const shared = req.method === 'GET' && /^\/v1\/shares\/([\w-]{1,64})$/.exec(url.pathname);
+    if (shared) {
+      const s = await sharedTrip(store, shared[1]);
+      if (!s) throw new ApiError(404, 'not_found', 'This trip link has expired or was removed.');
+      return json(s, req, env, { 'Cache-Control': 'private, max-age=60' });
     }
     const del = req.method === 'DELETE' && /^\/v1\/me\/trips\/([\w-]{1,64})$/.exec(url.pathname);
     if (del) {

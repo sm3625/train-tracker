@@ -265,6 +265,19 @@ for (const [name, make] of Object.entries(ADAPTERS)) {
     assert.equal(await s.countAttempts('login-ip:1.2.3.4', 0), 1);
   });
 
+  test(`${name}: trip share links`, async () => {
+    const s = make();
+    const trip = { id: 'trip-1', userId: 'u1', provider: 'Amtrak', num: '5', date: '2026-11-20', departAt: 1, data: { route: 'Z' }, createdAt: 1 };
+    await s.addTrip(trip);
+    assert.equal(await s.shareTrip('u2', 'trip-1', 'tok-other', 1), null);   // someone else's trip
+    assert.equal(await s.shareTrip('u1', 'trip-1', 'tok-a', 1), 'tok-a');
+    assert.equal(await s.shareTrip('u1', 'trip-1', 'tok-b', 2), 'tok-a');   // the link it already has
+    assert.equal((await s.getSharedTrip('tok-a')).num, '5');
+    assert.equal(await s.getSharedTrip('tok-b'), null);
+    await s.deleteTrip('u1', 'trip-1');
+    assert.equal(await s.getSharedTrip('tok-a'), null);
+  });
+
   test(`${name}: delay recorder state and runs`, async () => {
     const s = make();
     assert.deepEqual(await s.getRecorderReads(), {});

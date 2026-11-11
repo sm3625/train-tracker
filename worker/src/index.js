@@ -18,6 +18,7 @@ import { AGENCIES, SECRET_KEYS } from './agencies.js';
 import { buildTrains, railFilter, feedSilence, GONE_MS } from './trains.js';
 import { due, observe, summarize, HISTORY } from './delays.js';
 import { storeFor } from './store/index.js';
+import { sharePage, appleAssociation, androidAssociation } from './share.js';
 import SCHEDULES from './schedules.json' with { type: 'json' };
 
 const KEEP_STALE = 30 * 60;   // after an upstream error, keep serving the last good copy this long (seconds)
@@ -205,6 +206,7 @@ export async function recordDelays(env, now = Date.now()) {
 
 /* ---------------- delay history ---------------- */
 /* GET /v1/delays?provider=LIRR&num=2034&day=wkd: how late that train usually is, stop by stop, over the last 45 days
+   (63 for Saturdays and Sundays, so they can reach 8 trips)
    (summarize() in delays.js). null when it has too few trips. One indexed read of at most 45 rows. DELAYS_MIN_TRIPS
    lowers the 8-trip minimum, for trying it locally on a few days' history. */
 async function delays(url, req, env) {
@@ -214,11 +216,12 @@ async function delays(url, req, env) {
   }
   const store = storeFor(env);
   if (!store) return json({ error: { code: 'unavailable', message: 'No delay history here.' } }, req, env, { 'Cache-Control': 'no-store' }, 503);
-  const since = new Date(Date.now() - HISTORY.days * 86400000).toISOString().slice(0, 10);
+  const days = day === 'wkd' ? HISTORY.days : HISTORY.weekendDays;
+  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const runs = await store.listTrainRuns(provider, num, day, since);
   const minTrips = Number(env.DELAYS_MIN_TRIPS) || HISTORY.minTrips;
   const stats = summarize(runs, { minTrips });
-  return json({ provider, num, day, since, days: HISTORY.days, minTrips, onTimeMin: HISTORY.onTimeMin, trips: runs.length, stats },
+  return json({ provider, num, day, since, days, minTrips, onTimeMin: HISTORY.onTimeMin, trips: runs.length, stats },
     req, env, { 'Cache-Control': 'public, max-age=3600' });
 }
 
@@ -241,6 +244,11 @@ export default {
     }
     if (isAccountsPath(url.pathname)) return handleAccounts(req, env, ctx, url);
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
+    // trip share links (share.js): the page a browser sees, and the files that let the apps open them instead
+    const s = /^\/s\/([\w-]{1,64})$/.exec(url.pathname);
+    if (s) return sharePage(storeFor(env), env, s[1]);
+    if (url.pathname === '/.well-known/apple-app-site-association') return appleAssociation(env);
+    if (url.pathname === '/.well-known/assetlinks.json') return androidAssociation(env);
     // per address, per Cloudflare location (wrangler.toml [[ratelimits]]). It spares the railroads' feeds and the
     // worker's CPU from one script hammering; the blocked request still counts toward the worker's daily requests.
     if (env.FEEDS_LIMIT && (url.pathname === '/v1/trains' || url.pathname === '/v1/stations' || url.pathname === '/v1/delays')) {

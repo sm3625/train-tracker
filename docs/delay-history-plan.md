@@ -52,7 +52,7 @@ per commuter railroad, so the split should be confirmed over a full day before r
 | Bad days | "1 trip in 10 is 25+ min late" (the 90th percentile), shown when it's 15 min or more | Says how bad it gets without one outlier speaking for the train |
 | Where it's measured | At **each stop**: departure at the rider's station, arrival at their stop | A train can leave on time and arrive 20 min late. A single per-train number would mislead |
 | What counts as the same train | Provider + train number + **day type** (weekday, Saturday, Sunday) (decided) | Commuter numbers repeat every weekday. Weekend trains often run a different pattern under the same number |
-| Window | The last **45 days** (decided) | Enough trips for a fair sample, even for a weekend-only train (about 12 Saturdays or Sundays). Long-running track work still shows, which riders should know about |
+| Window | The last **45 days** for weekdays, **63** for Saturdays and Sundays (decided) | About 32 weekday trips. 45 days holds only 6 or 7 Saturdays (or Sundays), short of the 8-trip minimum, so weekends look back 9 weeks. Long-running track work still shows, which riders should know about |
 | Minimum sample | **8 trips** in the window, else show nothing | Fewer than that is an anecdote |
 | Timetable changes | Use only trips whose scheduled time at that stop is within 5 min of today's timetable | A retimed train's old delays describe a different schedule |
 | Cancellations | Left out of the delay, counted separately ("cancelled 2 of the last 45 days") | A cancelled train has no delay |
