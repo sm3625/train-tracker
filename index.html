@@ -137,7 +137,7 @@
     --card: transparent; --rule: var(--border-strong);
   }
   :root:not([data-theme="dark"]) { --muted: #48484d; --faint: #5c5c61; --fill: rgba(118, 118, 128, .22); }
-  .card-like, .d-sum, .summary, .prov-panel, .hero, .mt-card, .compare, .facts, .plan-res, .pp-fav, .loc-card { outline: 1px solid var(--border-strong); outline-offset: -1px; }
+  .card-like, .d-sum, .tp-card, .summary, .prov-panel, .hero, .mt-card, .compare, .facts, .plan-res, .pp-fav, .loc-card { outline: 1px solid var(--border-strong); outline-offset: -1px; }
 }
 
 * { box-sizing: border-box; }
@@ -557,6 +557,35 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 }
 .pill .sw { width: 9px; height: 9px; border-radius: 50%; }
 .d-status span { font-size: 13px; color: var(--muted); }
+/* a saved trip that isn't running (renderTripScreen): modelled on a flight's page */
+.tp { display: grid; gap: 14px; }
+.tp-head small { display: block; font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tp-head h2 { margin: 4px 0 2px; font-size: 26px; line-height: 1.12; letter-spacing: -.028em; text-wrap: balance; }
+.tp-head p { margin: 0; color: var(--muted); }
+.tp-status { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--fill); font-size: 14px; }
+.tp-legs { gap: 4px; }
+.tp-stn { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; color: var(--ink); font: inherit; font-weight: 600; font-size: 14.5px; text-align: left; }
+.tp-stn .tp-dot { width: 10px; height: 10px; border-radius: 50%; border: 2.5px solid var(--ink); flex: none; }
+.tp-stn .tp-go { color: var(--faint); margin-left: 2px; }
+@media (hover: hover) { .tp-stn:hover { color: var(--tint); } }
+.tp-time { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+.tp-time b { font-size: 40px; line-height: 1.05; font-weight: 700; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.tp-time small { color: var(--muted); font-size: 13px; font-weight: 600; }
+.tp-usual { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: var(--sig-text); }
+.tp-usual.sig-ok { color: var(--ok); }
+.tp-wait { color: var(--faint); font-weight: 500; }
+.tp-mid { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 13px; color: var(--muted); }
+.tp-mid::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+.tp-card { padding: 16px; border-radius: 18px; background: var(--card); }
+.tp-card h3 { margin: 0 0 10px; }
+.tp-card .note { margin: 0; }
+.tp-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+.tp-stats b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tp-stats b[class^="sig-"] { color: var(--sig-text); }
+.tp-stats b.sig-ok { color: var(--ink); }
+.tp-stats span { font-size: 12.5px; color: var(--muted); }
+.stop.tp-end .s-name b, .stop.tp-end .s-name button { font-weight: 700; }
+.stop.tp-end .rail i { border-color: var(--ink); background: var(--ink); }
 .d-hist { margin: 0; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
 .d-hist b { color: var(--ink); font-weight: 600; }
 .s-name small .usu { margin-left: 6px; }
@@ -1586,6 +1615,7 @@ select:focus-visible { box-shadow: var(--ring); outline: none; }
 
       <section id="detail" aria-label="Train details" hidden></section>
       <section id="station" aria-label="Station arrivals and departures" hidden></section>
+      <section id="trip" aria-label="Trip details" hidden></section>
     </div>
 
     <div class="foot" id="foot">
@@ -4081,6 +4111,13 @@ const nav = [];                 // screens opened over the tab: { type: 'train',
 const scrollMem = new Map();
 const topScreen = () => nav[nav.length - 1] || null;
 const screenKey = (s) => (s ? s.type + ':' + (s.id || s.code) : 'tab:' + tab);
+/* A screen's link: #t-<train>, #s-<station>, #trip-<saved trip> */
+const screenHash = (s) => (s.type === 'train' ? 't-' + encodeURIComponent(s.id) : s.type === 'trip' ? 'trip-' + encodeURIComponent(s.id) : 's-' + encodeURIComponent(s.code));
+function renderScreen(s) {
+  if (s.type === 'train') renderDetail();
+  else if (s.type === 'trip') renderTripScreen();
+  else renderBoard();
+}
 const rememberScroll = () => scrollMem.set(screenKey(topScreen()), bodyEl.scrollTop);
 let boardTab = 'arr', boardFilter = 'upcoming';
 
@@ -4191,12 +4228,12 @@ function showScreen({ reset = false, restore = false } = {}) {
   for (const n of TABS) $('#view-' + n).hidden = !!s || tab !== n;
   $('#detail').hidden = !(s && s.type === 'train');
   $('#station').hidden = !(s && s.type === 'station');
+  $('#trip').hidden = !(s && s.type === 'trip');
   $('#foot').hidden = !!s;
   if (prevSel !== selectedId) drawTrail();
-  if (!s) { $('#detail').innerHTML = ''; $('#station').innerHTML = ''; renderTab(); }
-  else if (s.type === 'train') renderDetail();
-  else renderBoard();
-  const hash = s ? (s.type === 'train' ? '#t-' + encodeURIComponent(s.id) : '#s-' + encodeURIComponent(s.code)) : '';
+  if (!s) { $('#detail').innerHTML = ''; $('#station').innerHTML = ''; $('#trip').innerHTML = ''; renderTab(); }
+  else renderScreen(s);
+  const hash = s ? '#' + screenHash(s) : '';
   try {
     const url = hash || location.pathname + location.search;
     // a new screen: a new entry, unless a #t-/#s- link just made one for it
@@ -4915,23 +4952,29 @@ const delayHistory = new Map();   // 'provider|num|day' -> undefined while loadi
 const DAY_WORD = { wkd: 'weekday', sat: 'Saturday', sun: 'Sunday' };
 function dayTypeOf(t) {
   const d = serviceDateOf(t);
-  if (!d) return '';
-  const w = new Date(d + 'T12:00:00Z').getUTCDay();
-  return w === 6 ? 'sat' : w === 0 ? 'sun' : 'wkd';
+  return d ? dayTypeOfDate(d) : '';
 }
-function historyOf(t) {
-  const day = FEEDS_API && dayTypeOf(t);
-  if (!day) return null;
-  const key = `${t.provider}|${t.num}|${day}`;
+const dayTypeOfDate = (d) => { const w = new Date(d + 'T12:00:00Z').getUTCDay(); return w === 6 ? 'sat' : w === 0 ? 'sun' : 'wkd'; };
+/* The answer for one train on one kind of day: undefined while it loads, then the worker's answer, whose stats are null
+   when the train has too few recorded trips, or null if it couldn't be had. The screen that asked is drawn again. */
+function historyFor(provider, num, day) {
+  if (!FEEDS_API || !day) return null;
+  const key = `${provider}|${num}|${day}`;
   if (delayHistory.has(key)) return delayHistory.get(key);
   delayHistory.set(key, undefined);
-  fetch(`${FEEDS_API}/v1/delays?${new URLSearchParams({ provider: t.provider, num: t.num, day })}`)
+  fetch(`${FEEDS_API}/v1/delays?${new URLSearchParams({ provider, num, day })}`)
     .then((r) => (r.ok ? r.json() : null)).catch(() => null)
     .then((h) => {
-      delayHistory.set(key, h && h.stats ? h : null);
-      if (h && h.stats && selectedId === t.id && topScreen() && topScreen().type === 'train') renderDetail();
+      delayHistory.set(key, h || null);
+      const scr = topScreen();
+      if (scr && scr.type === 'train') renderDetail();
+      else if (scr && scr.type === 'trip') renderTripScreen();
     });
   return undefined;
+}
+function historyOf(t) {
+  const h = historyFor(t.provider, t.num, dayTypeOf(t));
+  return h && h.stats ? h : null;
 }
 /* "6 min late", "about 6 min late", "on time": a stop's median. */
 function usualText(st) {
@@ -4952,6 +4995,127 @@ function historyHTML(t) {
   const share = st.n < 10 ? `${Math.round(st.onTime * st.n)} of ${st.n}` : `${Math.round(st.onTime * 10)} in 10`;
   return `<p class="d-hist">Usually ${last ? 'reaches' : 'leaves'} <b>${esc(stop.name || stop.code)}</b> ${esc(usualText(st))}`
     + ` · on time ${share} ${DAY_WORD[h.day]} trips in the last ${h.days} days</p>`;
+}
+/* ---------------- a saved trip that isn't running: what to expect ----------------
+   Opened from a trip card when the train isn't in the live feed yet (or any more): the two stops with their times and
+   how late the train usually is there, the stops between from the timetable, and the route on the map. */
+function openTrip(p) {
+  const cur = topScreen();
+  if (cur && cur.type === 'trip' && cur.id === p.id) return;
+  rememberScroll();
+  nav.push({ type: 'trip', id: p.id, trip: p });
+  if (following) setFollow(false);
+  tripFit = true;
+  showScreen({ reset: true });
+  sheetFor('trip');
+  if (!tt) loadTimetables().then(() => { if (topScreen() && topScreen().type === 'trip') { renderTripScreen(); drawPassportMap(); } }).catch(() => {});
+}
+let tripFit = false;   // fit the map to the trip's route the next time it's drawn
+/* The trip's stops from the timetable, from the rider's station to theirs, with times; just the two without it. */
+function tripStops(p) {
+  const two = [{ code: p.from.code, name: p.from.name, tz: p.from.tz, arr: p.from.at, dep: p.from.at },
+    { code: p.to.code, name: p.to.name, tz: p.to.tz, arr: p.to.at, dep: p.to.at }];
+  if (!tt) return two;
+  const run = runsByNumber(p.num, p.date.replace(/-/g, '')).find((r) => r.provider === p.provider);
+  if (!run) return two;
+  const i = run.stops.findIndex((s) => s.code === p.from.code);
+  const j = run.stops.findIndex((s, k) => k > i && s.code === p.to.code);
+  return i >= 0 && j > i ? run.stops.slice(i, j + 1) : two;
+}
+function renderTripScreen() {
+  const box = $('#trip');
+  const scr = topScreen();
+  if (!scr || scr.type !== 'trip') { box.innerHTML = ''; return; }
+  const p = myTrips.find((q) => q.id === scr.id) || scr.trip;
+  const mine = myTrips.some((q) => q.id === p.id);
+  const live = liveForTrip(p);
+  const day = dayTypeOfDate(p.date);
+  const h = historyFor(p.provider, p.num, day);
+  const stats = h && h.stats;
+  const stops = tripStops(p);
+  const usual = (code) => (stats && stats.stops[code]) || null;
+  const km = tripKm(p);
+  const longDate = fmt(p.from.tz, { weekday: 'short', month: 'short', day: 'numeric' }).format(p.from.at);
+  const future = p.from.at > Date.now();
+  const status = live ? `Running now. ${esc(liveLeg(live, p))}`
+    : future ? `Leaves ${esc(p.from.at - Date.now() < 86400000 ? relTime(p.from.at) : dayPhrase(p.from.at, p.from.tz))}. Live tracking starts once it’s running.`
+    : 'This trip has finished.';
+  // one end of the trip: station, scheduled time, and how late it usually is there
+  const end = (s, at, verb) => {
+    const u = usual(s.code);
+    const expect = u && u.median > 1 ? ` · ${esc(clock(at + u.median * 60000, s.tz))}` : '';
+    const code = /^[A-Z]{2,4}$/.test(s.code) && codeLabel(s.code) === s.code ? esc(s.code) + ' · ' : '';   // Amtrak's NYP; commuter stops have no code worth showing
+    const line = u ? `<p class="tp-usual sig-${sig(u.median)}">Usually ${verb} ${esc(usualText(u))}${expect}</p>`
+      : h === undefined ? '<p class="tp-usual tp-wait">Looking up typical delays…</p>' : '';
+    return `<button type="button" class="tp-stn" data-code="${esc(s.code)}"><span class="tp-dot"></span>${code}${esc(s.name)}<span class="tp-go">›</span></button>`
+      + `<div class="tp-time"><b>${esc(clock(at, s.tz))}</b><small>${esc(tzAbbr(at, s.tz))}${plusDays(p.from, { at, tz: s.tz }).replace(/<[^>]+>/g, '')}</small></div>${line}`;
+  };
+  const between = Math.max(0, stops.length - 2);
+  const mid = [durText(Math.round((p.to.at - p.from.at) / 60000)), km != null ? Math.round(kmToMi(km)).toLocaleString() + ' mi' : '', between ? plural(between, 'stop') + ' between' : 'nonstop']
+    .filter(Boolean).join(' · ');
+
+  // typical delays: the rider's arrival, from the last 45 days of this train on this kind of day
+  let typical;
+  const word = DAY_WORD[day];
+  if (stats && usual(p.to.code)) {
+    const u = usual(p.to.code);
+    const share = u.n < 10 ? `${Math.round(u.onTime * u.n)} of ${u.n}` : `${Math.round(u.onTime * 10)} in 10`;
+    typical = `<div class="tp-stats">
+        <div><b class="sig-${sig(u.median)}">${u.median <= 1 ? 'On time' : u.median + ' min'}</b><span>${u.median <= 1 ? 'usual arrival' : 'usually late'}${u.estimated ? ', estimated' : ''}</span></div>
+        <div><b>${share}</b><span>on time</span></div>
+        <div><b>${u.p90 <= 1 ? 'On time' : u.p90 + ' min'}</b><span>9 in 10 within</span></div>
+      </div>
+      <p class="note">At ${esc(p.to.name)}, over ${plural(u.n, word + ' trip')} in the last ${h.days} days. On time means up to ${h.onTimeMin} min late.${stats.cancelled ? ` ${plural(stats.cancelled, 'trip was', 'trips were')} cancelled.` : ''}</p>`;
+  } else if (h === undefined) typical = '<p class="note">Looking up typical delays…</p>';
+  else if (h) typical = `<p class="note">Not enough history yet. Trackside has recorded ${plural(h.trips, word + ' trip')} of train ${esc(p.num)} in the last ${h.days} days, and shows typical delays from ${h.minTrips}.</p>`;
+  else typical = '<p class="note">Typical delays aren’t available right now.</p>';
+
+  const rows = stops.map((s, k) => {
+    const u = usual(s.code), last = k === stops.length - 1, at = last ? s.arr : s.dep;
+    const nameEl = stations.has(s.code) ? `<button type="button" class="s-link" data-code="${esc(s.code)}">${esc(s.name)}</button>` : `<b>${esc(s.name)}</b>`;
+    return `<li class="stop ahead${last ? ' last' : ''}${k === 0 || last ? ' tp-end' : ''}"><span class="rail"><i></i></span>`
+      + `<div class="s-name">${nameEl}<small>${esc(codeLabel(s.code))}</small></div>`
+      + `<div class="s-t"><span class="k">${last ? 'Ar' : 'Dp'}</span>${esc(clock(at, s.tz))}</div>`
+      + `<div class="s-t ${u ? 'sig-' + sig(u.median) : ''}">${u ? `<span class="dl">${esc(usualText(u))}</span>` : '<span class="na">–</span>'}</div></li>`;
+  });
+  const backLabel = tab === 'home' ? 'Back to Home' : tab === 'track' ? 'Back to Trips' : 'Back';
+  box.innerHTML = `
+    <div class="detail tp">
+      <div class="d-nav"><button type="button" class="link-btn" id="back">${ICON.back}${esc(backLabel)}</button></div>
+      <header class="tp-head">
+        <small>${esc(provName(p.provider))} ${esc(p.num)} · ${esc(longDate)}</small>
+        <h2>${esc(p.from.name)} to ${esc(p.to.name)}</h2>
+        <p>${esc(p.route)}${p.username ? ` · @${esc(p.username)}’s trip` : ''}</p>
+      </header>
+      <p class="tp-status">${status}</p>
+      <section class="d-sum tp-legs" aria-label="Departure and arrival">
+        ${end(p.from, p.from.at, 'leaves')}
+        <div class="tp-mid"><span>${esc(mid)}</span></div>
+        ${end(p.to, p.to.at, 'arrives')}
+      </section>
+      <div class="d-actbar">
+        <button type="button" class="btn" id="tpMap">${ICON.map}Show route</button>
+        ${live ? '<button type="button" class="btn primary" id="tpLive">Track live</button>' : ''}
+        ${mine ? '<button type="button" class="btn" id="tpRemove">Remove trip</button>' : ''}
+      </div>
+      <section class="tp-card" aria-label="Typical delays"><h3>Typical delays</h3>${typical}</section>
+      <div class="tt">
+        <h3>${stops.length > 2 ? 'Stops' : 'Timetable'}</h3>
+        <div class="tt-head"><span></span><span>Station</span><span>Scheduled</span><span>Usually</span></div>
+        <ol class="stops">${rows.join('')}</ol>
+      </div>
+      <p class="note">Times are scheduled, local to each station. “Usually” is the median delay ${stats ? `over the last ${h.days} days of ${word} trips` : 'once enough trips are recorded'}${stats && Object.values(stats.stops).some((x) => x.estimated) ? '; “about” marks railroads that report only estimates' : ''}.</p>
+    </div>`;
+  $('#back').onclick = goBack;
+  $('#tpMap').onclick = () => { tripFit = true; drawPassportMap(); if (mqMobile.matches) setSheet('collapsed'); };
+  const lv = $('#tpLive');
+  if (lv) lv.onclick = () => openTrain(live.id, { pan: true });
+  const rm = $('#tpRemove');
+  if (rm) rm.onclick = async () => {
+    try { await dropTrip(p.id); toast(`Removed train ${p.num} from your trips.`, 3500); goBack(); }
+    catch (ex) { toast(ex.message, 5000); }
+  };
+  $$('[data-code]', box).forEach((b) => { b.onclick = () => openStation(b.dataset.code); });
 }
 /* Opened from a station's board: that station first, since it's the one the rider asked about. Arrival or departure
    follows the board they came from. */
@@ -6149,7 +6313,7 @@ function reconcile(remote, merge) {
   if (changed) {
     syncSettings();
     const s = topScreen();
-    if (!s) renderTab(); else if (s.type === 'train') renderDetail(); else renderBoard();
+    if (!s) renderTab(); else renderScreen(s);
   }
   return send;
 }
@@ -6796,11 +6960,34 @@ $('#passport').addEventListener('click', (e) => {
    stack, so the stretches ridden most come out strongest. */
 let passportDots = [];
 function drawPassportMap() {
-  const on = tab === 'passport' && !topScreen() && !!session && stationsLoaded;
-  mapEl.classList.toggle('passport-on', on);
+  const scr = topScreen();
+  const tripOn = !!scr && scr.type === 'trip' && stationsLoaded;
+  const on = tab === 'passport' && !scr && !!session && stationsLoaded;
+  mapEl.classList.toggle('passport-on', on || tripOn);
   gPassport.selectAll('*').remove();
   passportDots = [];
-  if (on) {
+  if (tripOn) {
+    // stop to stop along the track, as a train's route is drawn
+    const p = myTrips.find((q) => q.id === scr.id) || scr.trip;
+    const stops = tripStops(p), lls = [];
+    for (let k = 0; k < stops.length - 1; k++) {
+      const coords = legCoords(stops[k].code, stops[k + 1].code);
+      if (!coords) continue;
+      lls.push(...coords);
+      const d = geoPath({ type: 'LineString', coordinates: coords });
+      gPassport.append('path').attr('class', 'casing').attr('d', d);
+      gPassport.append('path').attr('class', 'line on').attr('d', d);
+    }
+    stops.forEach((s, k) => {
+      const stn = stations.get(s.code);
+      if (!stn) return;
+      const endStop = k === 0 || k === stops.length - 1;
+      passportDots.push({ p: stn.p, label: endStop ? (stn.city || s.name) : '', n: endStop ? 2 : 0, small: !endStop });
+      if (!lls.length) lls.push([stn.lon, stn.lat]);
+    });
+    passportDots.sort((a, b) => b.n - a.n);
+    if (tripFit && lls.length) { tripFit = false; flyToBounds(boundsOf(lls, 0.3), 40); }
+  } else if (on) {
     const trips = passportShown();
     const lls = [];
     const seen = new Map();
@@ -6822,6 +7009,7 @@ function drawPassportMap() {
     if (passportFit && lls.length) { passportFit = false; flyToBounds(boundsOf(lls, 0.4), 40); }
   }
   const g = gPassportPts.selectAll('g').data(passportDots).join((en) => { const x = en.append('g'); x.append('circle').attr('r', 4); x.append('text').attr('x', 7).attr('y', 4); return x; });
+  g.select('circle').attr('r', (d) => (d.small ? 2.6 : 4));
   g.select('text').text((d) => d.label);
   positionPassport();
 }
@@ -6881,14 +7069,11 @@ function tripCard(p, friend = false) {
     + (friend ? '' : `<button type="button" class="icon-btn mt-x" data-trip-x="${esc(p.id)}" aria-label="Remove train ${esc(p.num)} on ${esc(when)} from your trips">×</button>`) + '</div>';
 }
 const tripDone = (p) => p.to.at + 6 * 3600000 < Date.now();   // arrived (on the timetable) more than six hours ago
-/* Opens a trip's train if it's running, or says when it will be. */
+/* Opens a trip's train if it's running, else the trip itself: its times, typical delays and route. */
 function showTripTrain(p) {
   const live = liveForTrip(p);
   if (live) { openTrain(live.id, { pan: true }); return; }
-  const whose = p.username ? `@${p.username}’s train ${p.num}` : `Train ${p.num}`;
-  toast(p.from.at > Date.now()
-    ? `${whose} is scheduled to leave ${p.from.name} ${dayPhrase(p.from.at, p.from.tz)} at ${clockZ(p.from.at, p.from.tz)}. Live tracking starts once it’s running.`
-    : `${whose} isn’t in the live feed.`, 6000);
+  openTrip(p);
 }
 function renderMyTrips() {
   if (tab === 'home' && !topScreen()) renderHome();   // Home shows the same trips
@@ -6953,7 +7138,7 @@ function heroHTML(p) {
   const head = `<div class="hero-top"><span>${esc(dayWord(p.from.at, p.from.tz))}</span><span>${esc(provName(p.provider))}</span></div>`
     + `<div class="hero-title">${esc(p.num)} ${esc(p.route)}</div>`
     + `<div class="hero-leg">${esc(p.from.name)} ${esc(clockZ(p.from.at, p.from.tz))} → ${esc(p.to.name)} ${esc(clockZ(p.to.at, p.to.tz))}${plusDays(p.from, p.to)}</div>`;
-  const acts = (track) => `<div class="hero-acts">${track ? '<button type="button" class="btn primary" data-hero="track">Track train</button>' : ''}`
+  const acts = (track) => `<div class="hero-acts">${track ? '<button type="button" class="btn primary" data-hero="track">Track train</button>' : '<button type="button" class="btn primary" data-hero="details">Trip details</button>'}`
     + `${live ? '<button type="button" class="btn" data-hero="share">Share</button>' : ''}<button type="button" class="btn" data-hero="trips">All trips</button></div>`;
   if (!snap) {
     return `<div class="hero">${head}<p class="hero-status">Scheduled. Live once running.</p>`
@@ -7018,6 +7203,7 @@ $('#homeHero').addEventListener('click', (e) => {
   const p = heroTrip(), live = p && liveForTrip(p);
   switch (b.dataset.hero) {
     case 'track': if (live) openTrain(live.id, { pan: true }); break;
+    case 'details': if (p) openTrip(p); break;
     case 'share': if (live) shareLink(baseUrl() + '#t-' + encodeURIComponent(live.id), `Train ${live.num} ${live.route} on Trackside`); break;
     case 'trips': setTab('track'); break;
     case 'explore': setTab('explore'); break;
@@ -7667,6 +7853,10 @@ function resolveHash() {
     const alt = liveFor(id.split('-')[0])[0];
     if (alt) { openTrain(alt.id, { pan: true, zoomIn: true }); toast(`Showing train ${alt.num}’s current run.`); }
     else toast(`Train ${id.split('-')[0]} isn’t in the live feed.`);
+  } else if (h.startsWith('trip-')) {
+    pendingHash = null;
+    const p = myTrips.find((q) => q.id === h.slice(5));
+    if (p) showTripTrain(p);
   } else if (h === 'feedback') {
     pendingHash = null;
     if (ACCOUNTS_API) openFeedback();
@@ -7681,7 +7871,7 @@ function resolveHash() {
 window.addEventListener('hashchange', () => {
   const h = (location.hash || '').slice(1);
   const cur = topScreen();
-  const curHash = cur ? (cur.type === 'train' ? 't-' + cur.id : 's-' + cur.code) : '';
+  const curHash = cur ? decodeURIComponent(screenHash(cur)) : '';
   if (!h || decodeURIComponent(h) === curHash) return;
   pendingHash = h;
   resolveHash();
@@ -7696,7 +7886,7 @@ function renderAll() {
   // keep focus and open notices across the once-a-minute redraw
   const focusId = document.activeElement && bodyEl.contains(document.activeElement) ? document.activeElement.id : '';
   const openDetails = $$('#detail details').map((d, i) => (d.open ? i : -1)).filter((i) => i >= 0);
-  if (!s) renderTab(); else if (s.type === 'train') renderDetail(); else renderBoard();
+  if (!s) renderTab(); else renderScreen(s);
   openDetails.forEach((i) => { const d = $$('#detail details')[i]; if (d) d.open = true; });
   if (focusId && document.getElementById(focusId)) document.getElementById(focusId).focus({ preventScroll: true });
   updateClearAll();
@@ -7783,6 +7973,7 @@ function stationsChanged() {
   if (!topScreen() && tab === 'stations') renderStationsTab();
   if (!topScreen() && tab === 'passport') renderPassport();   // distances need the stations
   if (topScreen() && topScreen().type === 'train') renderDetail();
+  if (topScreen() && topScreen().type === 'trip') { renderTripScreen(); drawPassportMap(); }   // distance and route need them
   resolveHash();
 }
 async function loadStations() {

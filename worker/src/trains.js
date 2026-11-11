@@ -160,7 +160,11 @@ function resolve(cands, sched, tu, desc, c, now) {
    byTrip says which, since a number can belong to several trains. A mixed feed's trip ids go stale when the railroad
    publishes a new schedule (MBTA's FBTieJobPhase17006patch-879417-6042), so a trip on a rail route falls back to the
    number at the end of its id; resolve() still has to find it running at about that time. */
-function candidates(sched, key, desc, mixed) {
+function candidates(sched, key, desc, mixed, tripIds = true) {
+  if (!tripIds) {
+    const n = String(key).replace(/^0+(?=\d)/, '');   // NJ Transit's "0419" is train 419
+    return { runs: sched.nums[n] || [], byTrip: false };
+  }
   if (desc.tripId && sched.trips && desc.tripId in sched.trips) return { runs: [sched.trips[desc.tripId]], byTrip: true };
   if (mixed) {
     const n = desc.routeId && desc.routeId in sched.routes && ((desc.tripId || '').match(/(\d+)$/) || [])[1];
@@ -190,7 +194,7 @@ export function buildTrains(agency, sched, feeds, now) {
     const veh = vehicles.get(key), tu = updates.get(key);
     const desc = { ...((tu && tu.trip) || {}), ...((veh && veh.trip) || {}) };
     if (tu && tu.trip && tu.trip.startDate) desc.startDate = tu.trip.startDate;
-    const cands = candidates(sched, key, desc, agency.mixed);
+    const cands = candidates(sched, key, desc, agency.mixed, agency.tripIds !== false);
     let fit = resolve(cands.runs, sched, tu, desc, c, now);
     if (fit && fit.score > MATCH_MS) fit = null;   // the same number or trip id, a different train
     if (!fit && (agency.mixed || !(veh && veh.position))) continue;   // a bus, or nothing to show

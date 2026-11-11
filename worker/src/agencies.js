@@ -12,6 +12,9 @@
      mixed             the feed also carries buses or light rail: keep only trips found in the rail timetable.
      joinBy            'trip' (default): vehicles and trip updates share a trip_id.
                        'entity': they only share the entity id (Metro-North uses the train number for it).
+     tripIds           false: the feed's trip_ids can't be trusted to match the timetable's, so trains are found by
+                       number (the entity id) and time. NJ Transit renumbers its trip_ids with every timetable it
+                       publishes, so the copy in schedules.json goes out of step within days.
 
    Timetable (static GTFS), boiled down by build-schedules.mjs into schedules.json:
      url               the zip, a list of zips to try in order, or (key) => url when the download needs a key
@@ -159,6 +162,8 @@ export const AGENCIES = [
     auth: (env, endpoint) => ({ load: (signal) => njtFeed(env, endpoint, signal) }),
     vehicles: { url: 'getVehiclePositions', fresh: 30 },
     trips: { url: 'getTripUpdates', fresh: 30 },
+    joinBy: 'entity',   // the entity id is the train number, "0419"
+    tripIds: false,
     gtfs: {
       download: njtGtfs,
       keepRoute: () => true,   // every route in the feed is rail; its route_type is 113 (railway service), not 2

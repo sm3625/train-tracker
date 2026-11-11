@@ -70,6 +70,18 @@ test('a trip id hours off its run is another train too (NJ Transit reuses trip i
   assert.equal(t.stations[1].arr, c.iso(at(10.5 * H)));   // two hours late: real, kept
 });
 
+test('a railroad whose trip ids drift is matched by the train number in the entity id (NJ Transit)', () => {
+  // NJ Transit renumbers trip ids with each timetable it publishes: here the live train 102 carries the trip id the
+  // timetable gave 101, and its entity id is the number with a leading zero
+  const agency = { ...AGENCY, joinBy: 'entity', tripIds: false };
+  const tu = { id: '0102', tripUpdate: { trip: { tripId: 't-101', startDate: day }, stops: [{ stopId: 'b', arrival: { time: at(10.5 * H + 180) / 1000 } }] } };
+  const veh = { id: '0102', vehicle: { trip: { tripId: 't-101', startDate: day }, position: { lat: 40.05, lon: -74 }, timestamp: at(10.3 * H) / 1000 } };
+  const [t] = buildTrains(agency, SCHED, [feed(tu, veh)], at(10.3 * H));
+  assert.equal(t.trainNum, '102');
+  assert.equal(t.stations[0].schDep, c.iso(at(10 * H)));
+  assert.equal(t.stations[1].arr, c.iso(at(10.5 * H + 180)));   // three minutes late at Bravo
+});
+
 test('a delay alone, against a stop_sequence, is applied to the timetable (SEPTA, Tri-Rail)', () => {
   const tu = { id: 'u', tripUpdate: { trip: { tripId: 't-102', startDate: day }, stops: [{ stopSeq: 7, arrival: { delay: 420 } }] } };
   const [t] = buildTrains(AGENCY, SCHED, [feed(tu)], at(10.2 * H));

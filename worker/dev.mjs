@@ -5,6 +5,8 @@
 // timetables instead.) Keys stay in this process.
 // Accounts are kept in .accounts-dev.sqlite here (git-ignored), through the same store code D1 uses.
 // Password-reset emails aren't sent: they're printed here, link and all.
+// The page served here starts signed in to a local account (@local), so trips can be saved without signing up; sign
+// out and it signs back in on the next load. --no-guest leaves the page signed out.
 // With --record, it also runs the delay recorder every minute, as Cloudflare's cron would, into the same database,
 // and prints what each run read (npm run dev -- --record).
 // With --history, it first copies the delay history the deployed recorder has written (the runs table in D1, read
@@ -40,6 +42,21 @@ for (const k of SECRET_KEYS) if (process.env[k]) env[k] = process.env[k];
 
 const port = Number(process.env.PORT) || 8787;
 
+/* The local account and a session for it, made fresh each start (the session lasts as the worker's do). */
+let guest = null;
+if (!process.argv.includes('--no-guest')) {
+  const email = 'local@trackside.test', now = Date.now();
+  let user = await env.ACCOUNTS_STORE.getUserByEmail(email);
+  if (!user) {
+    user = { id: crypto.randomUUID(), email, username: 'local', passwordHash: 'none', createdAt: now };   // no password signs in to it
+    await env.ACCOUNTS_STORE.createUser(user);
+  }
+  const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url');
+  const tokenHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))).toString('hex');
+  await env.ACCOUNTS_STORE.createSession({ tokenHash, userId: user.id, createdAt: now, expiresAt: now + 30 * 86400000 });
+  guest = { token, email, username: user.username, phone: null };
+}
+
 if (process.argv.includes('--history')) {
   console.log('Copying the delay history from D1…');
   const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'trackside-accounts', '--remote', '--json', '--command',
@@ -67,7 +84,11 @@ async function site(req, res) {
     // the page talks to this server, not the deployed worker (which only answers the published site), and skips
     // the bot check, which needs the published site's address
     if (p === '/') body = body.toString('utf8').replace(/^const FEEDS_WORKER = '[^']*';/m, `const FEEDS_WORKER = 'http://localhost:${port}';`)
-      .replace(/^const TURNSTILE_SITE_KEY = '[^']*';/m, "const TURNSTILE_SITE_KEY = '';");
+      .replace(/^const TURNSTILE_SITE_KEY = '[^']*';/m, "const TURNSTILE_SITE_KEY = '';")
+      // signed in to the local account unless signed in to another (a session from an earlier start is replaced)
+      .replace(/^let session = store\.get\('session', null\);/m, (line) => (guest
+        ? `let session = store.get('session', null);\nif (!session || session.email === ${JSON.stringify(guest.email)}) { session = ${JSON.stringify(guest)}; store.set('session', session); }`
+        : line));
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);
   } catch { res.writeHead(404); res.end('not found'); }
