@@ -460,7 +460,7 @@ test('only US and Canada numbers, and a daily cap on contacts lookups', async ()
 
 test('a page on localhost is allowed only by the dev server', async () => {
   const ask = (env) => worker.fetch(new Request('https://w.example/v1/stations', { headers: { Origin: 'http://localhost:5173' } }), env, { waitUntil() {} });
-  const live = { ALLOWED_ORIGINS: 'https://sm3625.github.io,capacitor://localhost,https://localhost' };
+  const live = { ALLOWED_ORIGINS: 'https://trackside-pearl.vercel.app,capacitor://localhost,https://localhost' };
   assert.equal((await ask(live)).headers.get('Access-Control-Allow-Origin'), null);
   assert.equal((await ask({ ...live, ALLOW_LOCALHOST: 'true' })).headers.get('Access-Control-Allow-Origin'), 'http://localhost:5173');
 });

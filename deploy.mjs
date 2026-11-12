@@ -61,7 +61,8 @@ if (check.status !== 200) { console.error(`Can't reach ${repo} with this token (
 
 // The feeds worker answers only the origins in its ALLOWED_ORIGINS. If the site's origin isn't one of them, the page
 // loads without its commuter railroads and nothing on the page says why, so check before uploading.
-const pagesOrigin = `https://${repo.split('/')[0]}.github.io`;
+const siteUrl = ((await readFile(path.join(dir, 'worker', 'wrangler.toml'), 'utf8')).match(/^SITE_URL\s*=\s*"([^"]+)"/m) || [])[1];
+const pagesOrigin = siteUrl ? new URL(siteUrl).origin : 'https://trackside-pearl.vercel.app';
 const feedsUrl = ((await readFile(path.join(dir, 'index.html'), 'utf8')).match(/const FEEDS_WORKER = '([^']+)'/) || [])[1];
 if (feedsUrl) {
   const res = await fetch(feedsUrl + '/v1/stations', { headers: { Origin: pagesOrigin } });
@@ -102,4 +103,4 @@ for (const file of files) {
   uploaded++;
   console.log(`${sha ? 'updated   ' : 'added     '} ${file}`);
 }
-console.log(uploaded ? `Done. GitHub Pages usually republishes within a minute or two: https://${repo.split('/')[0]}.github.io/${repo.split('/')[1]}/` : 'Nothing to upload; GitHub already has these versions.');
+console.log(uploaded ? `Done. Vercel builds from the push and usually publishes within a minute: ${siteUrl || pagesOrigin}` : 'Nothing to upload; GitHub already has these versions.');

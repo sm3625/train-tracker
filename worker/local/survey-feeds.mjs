@@ -13,7 +13,7 @@ const HOURS = Number(process.argv[2]) || 24;
 const OUT = process.argv[3] || 'survey.json';
 const EVERY = 5 * 60000;
 const SOURCES = [
-  ['feeds', 'https://trackside-feeds.trackside-feeds.workers.dev/v1/trains', { Origin: 'https://sm3625.github.io' }],
+  ['feeds', 'https://trackside-feeds.trackside-feeds.workers.dev/v1/trains', { Origin: 'https://trackside-pearl.vercel.app' }],
   ['amtraker', 'https://api-v3.amtraker.com/v3/trains', {}],
 ];
 

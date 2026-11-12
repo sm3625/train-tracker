@@ -2,7 +2,7 @@
 
 This Cloudflare Worker polls the commuter railroads' GTFS-Realtime feeds, matches each train to its published
 timetable, and serves the trains to the site as plain JSON, shaped like the Amtraker API the site already reads.
-Some railroads (Metrolink, Caltrain via 511, Metra) need API keys, which can't go in `index.html`: GitHub Pages
+Some railroads (Metrolink, Caltrain via 511, Metra) need API keys, which can't go in `index.html`: Vercel
 serves that file to everyone. The worker holds them as secrets. It also runs Trackside accounts: see
 [Accounts](#accounts) below.
 
@@ -130,7 +130,7 @@ running, whatever its feed says. These are rules, not settings:
 The status is in each `/v1/trains` response's `X-Feed-Status` header, one entry per railroad:
 
 ```bash
-curl -sI https://trackside-feeds.trackside-feeds.workers.dev/v1/trains -H 'Origin: https://sm3625.github.io' | grep -i x-feed-status
+curl -sI https://trackside-feeds.trackside-feeds.workers.dev/v1/trains -H 'Origin: https://trackside-pearl.vercel.app' | grep -i x-feed-status
 ```
 
 `ok`, or `stale: …` with the reason (an upstream error, or `the feed hasn't updated in 34 h`), or `error: …`.
@@ -303,7 +303,7 @@ Planning ahead uses the railroads' published timetables (static GTFS), all publi
 | Every railroad in `src/agencies.js` | its `gtfs.url` (Caltrain's from 511.org, with `CALTRAIN_511_KEY`) |
 
 `npm run timetables` boils them down to `../data/timetables.json` (about 2.4 MB, 580 KB compressed), which
-GitHub Pages serves next to the site and the page loads when someone opens the planner. Amtrak republishes its
+Vercel serves next to the site and the page loads when someone opens the planner. Amtrak republishes its
 feed weekly and only guarantees about a week ahead, so `../.github/workflows/timetables.yml` rebuilds the file
 every Monday and commits it when it changes. It needs the repository secret `CALTRAIN_511_KEY`. The planner says
 when a date is past a railroad's published range. If a railroad's feed fails, its previous timetable is kept.

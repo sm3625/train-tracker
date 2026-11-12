@@ -42,7 +42,7 @@
    after they're over, as the record of the person's rides, so only upcoming ones count toward the trip limit.
 
    Signed-in requests carry "Authorization: Bearer <token>". A bearer token rather than a cookie, because the site
-   (github.io) and this worker (workers.dev) are different sites and browsers increasingly block cross-site cookies.
+   (vercel.app) and this worker (workers.dev) are different sites and browsers increasingly block cross-site cookies.
    data is { key: { value, updatedAt } }: any JSON value, and when it last changed in ms since 1970.
    Errors are { error: { code, message } }, with a message fit to show people. */
 import { storeFor, StoreError } from './store/index.js';

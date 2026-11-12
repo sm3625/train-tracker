@@ -63,8 +63,9 @@ trains: they use the fixtures in `e2e/fixtures/` and a local copy of the worker.
 1. **Worker first**, so the page never calls routes that don't exist yet:
    `cd worker && npm run deploy`. This sets up the D1 database, applies migrations, uploads the keys from `.env` as
    secrets and deploys. The first time, run `npx wrangler login`.
-2. **The site**: push to `main` (GitHub Pages), or run `node deploy.mjs "message"` to upload the files in
-   `DEPLOY_FILES` through the GitHub API. `.vercelignore` limits a Vercel deploy to `index.html` and `data/`.
+2. **The site**: push to `main` and Vercel publishes it at https://trackside-pearl.vercel.app/ (or run
+   `node deploy.mjs "message"` to upload the files in `DEPLOY_FILES` through the GitHub API, which Vercel builds the
+   same way). `.vercelignore` limits the deploy to `index.html`, `turnstile.html` and `data/`.
 3. **The apps**: `cd app && npm run sync`, then build from Xcode or Android Studio. See
    [app/README.md](app/README.md), including what to do before a store release.
 

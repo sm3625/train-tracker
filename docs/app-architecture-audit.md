@@ -12,8 +12,8 @@ the Flighty-inspired plan. Secrets are named, never valued.
 - **Layout.** Desktop: a sidebar beside a full-height map. Phones: the sidebar becomes a three-position bottom sheet
   over the map. Three tabs: **Explore**, **Track a train**, **Stations**. Header buttons: Friends, Account, refresh,
   settings.
-- **Hosting.** GitHub Pages at `https://sm3625.github.io/train-tracker/`, published by `deploy.mjs` through the GitHub
-  contents API (files listed in `DEPLOY_FILES`). `turnstile.html` is the bot-check page the apps frame.
+- **Hosting.** Vercel at `https://trackside-pearl.vercel.app/`, built from each push to `main` (or a `deploy.mjs`
+  upload through the GitHub contents API, files listed in `DEPLOY_FILES`). `turnstile.html` is the bot-check page the apps frame.
 - **No frontend build, tests or linter.** Changes are checked by hand in a browser.
 
 ## Mobile apps (`app/`)

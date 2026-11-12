@@ -39,7 +39,7 @@ test('the swap button trades From and To, and looks the trains up again', async 
 test('when the page\'s own timetables can\'t be read, it uses the published site\'s', async ({ page }) => {
   await page.route('**/localhost:4173/data/timetables.json', (r) => r.abort());
   const data = readFileSync(new URL('../../data/timetables.json', import.meta.url));
-  await page.route('https://sm3625.github.io/train-tracker/data/timetables.json', (r) => r.fulfill({ body: data, contentType: 'application/json' }));
+  await page.route('https://trackside-pearl.vercel.app/data/timetables.json', (r) => r.fulfill({ body: data, contentType: 'application/json' }));
   await openSite(page);
   await openPlanner(page);
   await expect(page.locator('#planForm .acct-err')).toBeHidden();

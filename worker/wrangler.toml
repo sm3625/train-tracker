@@ -8,14 +8,14 @@ workers_dev = true
 [vars]
 # Pages allowed to read the feeds from a browser. The apps (../app) load the page from capacitor://localhost on iOS
 # and https://localhost on Android. Pages opened from disk or http://localhost are allowed only by the dev server.
-ALLOWED_ORIGINS = "https://sm3625.github.io,https://trackside-pearl.vercel.app,capacitor://localhost,https://localhost"
+ALLOWED_ORIGINS = "https://trackside-pearl.vercel.app,capacitor://localhost,https://localhost"
 
 # Where accounts are stored: "d1" (Cloudflare D1, set up by `npm run deploy`), "turso" (needs the secrets
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN) or "memory" (testing only: lost on restart). See README.md.
 ACCOUNTS_DB = "d1"
 
 # Password-reset emails link here, and trip share links (src/share.js) forward browsers here.
-SITE_URL = "https://sm3625.github.io/train-tracker/"
+SITE_URL = "https://trackside-pearl.vercel.app/"
 # Trip share links open the apps instead of the browser once these name them (src/share.js). iOS: TEAMID.bundle id,
 # from the Xcode project. Android: the Play signing certificate's SHA-256 (Play Console > App integrity), filled in when
 # the app is on Google Play. Both apps also declare the link address (app/README.md).

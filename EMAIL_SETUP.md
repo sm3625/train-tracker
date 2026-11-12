@@ -37,7 +37,7 @@ isn't set up yet. Everything else in accounts and trips works without email.
       ```
       The address must exactly match the one verified in Brevo, or Brevo rejects every send.
 - [ ] Check that `SITE_URL` in `worker/wrangler.toml` is still the live page
-      (`https://sm3625.github.io/train-tracker/`). Reset links are built from it.
+      (`https://trackside-pearl.vercel.app/`). Reset links are built from it.
 
 ### 3. Deploy
 - [ ] `cd worker && npm run deploy`. This uploads `BREVO_API_KEY` as a Worker secret, creates the D1

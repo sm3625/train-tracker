@@ -176,7 +176,7 @@ An agency isn't done until:
 1. **Check health.** `/v1/health`, or until that exists:
 
    ```bash
-   curl -sI https://trackside-feeds.trackside-feeds.workers.dev/v1/trains -H 'Origin: https://sm3625.github.io' | grep -i x-feed-status
+   curl -sI https://trackside-feeds.trackside-feeds.workers.dev/v1/trains -H 'Origin: https://trackside-pearl.vercel.app' | grep -i x-feed-status
    ```
 
 2. **Is it actually running?** Compare with the railroad's own data before changing anything.
