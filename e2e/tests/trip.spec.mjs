@@ -72,3 +72,24 @@ test('a trip shared as a link opens for someone signed out, read-only, with whos
   await expect(trip.locator('#tpShare, #tpRemove')).toHaveCount(0);
   await other.close();
 });
+
+test('a trip is over once its train reaches the rider\'s stop: it moves to Past trips', async ({ page }) => {
+  await openSite(page);
+  await signUp(page);
+  // Sunset Limited 1 is running in the recorded feed: it has passed Schriever, and Los Angeles is two days off
+  const leg = (code, name, iso, tz) => ({ code, name, at: Date.parse(iso), tz });
+  const trip = (to) => ({ provider: 'Amtrak', num: '1', route: 'Sunset Limited', date: '2026-10-14',
+    from: leg('NOL', 'New Orleans', '2026-10-14T09:00:00-05:00', 'America/Chicago'), to });
+  await page.evaluate(async (trips) => {
+    const { token } = JSON.parse(localStorage.getItem('trackside:session'));
+    for (const t of trips) {
+      const r = await fetch('http://localhost:8787/v1/me/trips', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(t) });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    }
+  }, [trip(leg('SCH', 'Schriever', '2026-10-14T10:30:00-05:00', 'America/Chicago'))]);
+  await page.reload();
+  await openSheet(page);
+  await page.locator('#tab-track').click();
+  await expect(page.locator('#mtList .mt-list:not(.mt-past .mt-list) [data-trip]')).toHaveCount(0);
+  await expect(page.locator('.mt-past summary')).toContainText('Past trips (1)');
+});

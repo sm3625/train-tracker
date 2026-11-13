@@ -7108,7 +7108,19 @@ function tripCard(p, friend = false) {
     + `${status}</button>`
     + (friend ? '' : `<button type="button" class="icon-btn mt-x" data-trip-x="${esc(p.id)}" aria-label="Remove train ${esc(p.num)} on ${esc(when)} from your trips">×</button>`) + '</div>';
 }
-const tripDone = (p) => p.to.at + 6 * 3600000 < Date.now();   // arrived (on the timetable) more than six hours ago
+/* A trip is over once its train reaches the rider's stop: going by the live train while it's in the feed, else by the
+   timetable, with an hour's grace for a late train the feed has lost. Over, it moves to Past trips. */
+function tripDone(p) {
+  const now = Date.now();
+  const live = liveForTrip(p);
+  if (live) {
+    const i = live.stops.findIndex((s) => s.code === p.from.code);
+    const j = live.stops.findIndex((s, k) => k > i && s.code === p.to.code);
+    if (j >= 0) return live.lastIdx >= j || live.stops[j].status === 'Station';   // left it, or standing at it
+    return live.lastIdx >= 0 && live.nextIdx < 0;   // its stop isn't in the feed's list: done when the run is
+  }
+  return p.to.at + 3600000 < now;
+}
 /* Opens a trip's train if it's running, else the trip itself: its times, typical delays and route. */
 function showTripTrain(p) {
   const live = liveForTrip(p);
